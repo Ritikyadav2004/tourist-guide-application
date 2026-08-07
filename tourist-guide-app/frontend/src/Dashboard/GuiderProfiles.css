@@ -1,0 +1,152 @@
+/* .guides-section {
+  margin-top: 20px;
+}
+
+.guides-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.header-left h2 {
+  margin: 0 0 6px 0;
+}
+
+.subtitle {
+  margin: 0 0 12px 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.search-row input {
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  width: 320px;
+}
+
+.header-right {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.header-right select {
+  padding: 8px 14px;
+  border-radius: 20px;
+  border: 1px solid #e5e7eb;
+  background: white;
+}
+
+.guide-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.guide-card {
+  background: white;
+  padding: 15px;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: 0.3s;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+
+.guide-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+}
+
+.guide-card img {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+.guide-card-content {
+  text-align: center;
+}
+
+.guide-card-content h3 {
+  margin: 10px 0 5px 0;
+}
+
+.guide-card-content h3 a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.guide-card-content h3 a:hover {
+  color: #3b82f6;
+}
+
+.guide-card-content p {
+  margin: 5px 0;
+  color: #6b7280;
+}
+
+.price {
+  font-weight: bold;
+  color: #0a66c2;
+}
+
+.guide-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 12px;
+  justify-content: center;
+}
+
+.guide-cta {
+  display: inline-block;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #0a66c2;
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.guide-cta:hover {
+  background: #0856a3;
+}
+
+.package-cta {
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+  font-size: 0.875rem;
+}
+
+.package-cta:hover {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 960px) {
+  .guides-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .header-right {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .search-row input {
+    width: 100%;
+  }
+} */
