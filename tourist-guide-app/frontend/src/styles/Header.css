@@ -1,0 +1,190 @@
+/* Header.css - Sticky top navigation for GullyGuide */
+.gg-header {
+  position: sticky;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  background-color: #ffffff;
+  border-bottom: 1px solid #f1f5f9;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  z-index: 100;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.gg-header-container {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Brand Logo */
+.gg-logo-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.gg-logo-icon-box {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  box-shadow: 0 3px 8px rgba(13, 148, 136, 0.3);
+  flex-shrink: 0;
+}
+
+.gg-logo-icon {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+}
+
+.gg-logo-text {
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: #0f172a;
+  line-height: 1;
+}
+
+.gg-logo-text span {
+  color: #0d9488;
+}
+
+/* Location Selector */
+.gg-location-selector {
+  display: flex;
+  align-items: center;
+  background-color: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 24px;
+  padding: 5px 12px 5px 10px;
+  gap: 6px;
+  transition: all 0.2s ease;
+  position: relative;
+  cursor: pointer;
+}
+
+.gg-location-selector:hover,
+.gg-location-selector:focus-within {
+  border-color: #0d9488;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
+}
+
+.gg-location-pin {
+  width: 16px;
+  height: 16px;
+  color: #0d9488;
+  flex-shrink: 0;
+}
+
+.gg-location-select {
+  border: none;
+  background: transparent;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #1e293b;
+  outline: none;
+  cursor: pointer;
+  padding-right: 4px;
+  font-family: inherit;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.gg-location-arrow {
+  width: 12px;
+  height: 12px;
+  color: #64748b;
+  pointer-events: none;
+}
+
+/* Profile / Avatar */
+.gg-profile-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #f1f5f9;
+  border: 2px solid #e2e8f0;
+  cursor: pointer;
+  position: relative;
+  padding: 0;
+  transition: transform 0.15s ease, border-color 0.2s ease;
+}
+
+.gg-profile-btn:hover {
+  border-color: #0d9488;
+  transform: scale(1.04);
+}
+
+.gg-profile-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.gg-profile-initial {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0d9488;
+}
+
+.gg-profile-online-badge {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  background-color: #10b981;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+}
+
+@media (max-width: 480px) {
+  .gg-header {
+    height: 58px;
+    padding: 0 12px;
+  }
+  
+  .gg-logo-text {
+    font-size: 17px;
+  }
+
+  .gg-location-selector {
+    padding: 4px 8px 4px 7px;
+    gap: 4px;
+  }
+
+  .gg-location-select {
+    font-size: 12.5px;
+    max-width: 90px;
+  }
+
+  .gg-profile-btn {
+    width: 36px;
+    height: 36px;
+  }
+}

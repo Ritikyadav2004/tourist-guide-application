@@ -1,4 +1,4 @@
-﻿import "./Categories.css";
+import "./Categories.css";
 import { useRef, useEffect, useState, useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
@@ -83,11 +83,11 @@ const Categories = () => {
   }, [posts, searchTerm]);
 
   return (
-    <div className="categories bg-white px-6 md:px-10 py-12">
-      <div className="categories-header flex items-center justify-between mb-6">
+    <div className="categories">
+      <div className="categories-header">
         <div>
-          <h2 className="text-2xl font-semibold">Explore by State</h2>
-          <p className="text-sm text-slate-500 mt-1">Find your perfect getaway curated from community posts.</p>
+          <h2 className="section-title">Explore by State</h2>
+          <p className="section-subtitle">Find your perfect getaway curated from community posts.</p>
         </div>
 
         <div className="category-arrows flex items-center gap-2">
@@ -124,8 +124,11 @@ const Categories = () => {
             key={cat.title}
             to={`/state/${encodeURIComponent(cat.title)}`}
             className="category-card"
-            style={{ backgroundImage: `url(${cat.image})` }}
           >
+            <div
+              className="category-card-image"
+              style={{ backgroundImage: `url(${cat.image})` }}
+            />
             <div className="overlay"></div>
             <div className="absolute inset-0 flex flex-col justify-end p-4 z-10 text-white">
               <h3 className="text-lg font-semibold">{cat.title}</h3>

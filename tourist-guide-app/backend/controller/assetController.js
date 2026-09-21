@@ -147,7 +147,7 @@ exports.updateAsset = async (req, res) => {
         const updatedAsset = await Asset.findByIdAndUpdate(
             assetId,
             updates,
-            { new: true, runValidators: true } // Return updated doc & run validators
+            { returnDocument: 'after', runValidators: true } // Return updated doc & run validators
         );
 
         res.status(200).json({

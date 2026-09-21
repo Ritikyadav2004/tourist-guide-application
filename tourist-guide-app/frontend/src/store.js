@@ -1,9 +1,15 @@
-import { applyMiddleware, createStore } from "redux";
-import { composeWithDevTools } from "@redux-devtools/extension";
-import { thunk } from "redux-thunk";
-import rootReducer from "./reducers";
+import { configureStore } from "@reduxjs/toolkit";
+import { authReducer } from "./reducers/authReducer";
+import { postReducer } from "./reducers/postReducer";
+import { uiReducer } from "./reducers/uiReducer";
+import { itineraryReducer } from "./reducers/itineraryReducer";
+import { chatReducer } from "./reducers/chatReducer";
 
-const middleware = [thunk];
+// New RTK Reducers
+import bookingReducer from "./slices/bookingSlice";
+import paymentReducer from "./slices/paymentSlice";
+import earningsReducer from "./slices/earningsSlice";
+import customPackageReducer from "./slices/customPackageSlice";
 
 const rawToken = localStorage.getItem("token");
 const tokenFromStorage =
@@ -24,11 +30,13 @@ const initialState = {
   ui: {
     locationFilter: "",
   },
-  guide: {
+  booking: {
     loading: false,
-    earnings: null,
-    bookingEarnings: null,
+    bookings: [],
+    booking: null,
+    guideAvailability: [],
     error: null,
+    success: false,
   },
   customPackage: {
     loading: false,
@@ -41,12 +49,35 @@ const initialState = {
     error: null,
     success: false,
   },
+  payment: {
+    loading: false,
+    order: null,
+    payment: null,
+    history: [],
+    error: null,
+    success: false,
+  },
+  guide: {
+    loading: false,
+    earnings: null,
+    bookingEarnings: null,
+    error: null,
+  },
 };
 
-const store = createStore(
-  rootReducer,
-  initialState,
-  composeWithDevTools(applyMiddleware(...middleware))
-);
+const store = configureStore({
+  reducer: {
+    auth: authReducer,
+    post: postReducer,
+    ui: uiReducer,
+    itinerary: itineraryReducer,
+    chat: chatReducer,
+    booking: bookingReducer,
+    payment: paymentReducer,
+    guide: earningsReducer,
+    customPackage: customPackageReducer,
+  },
+  preloadedState: initialState,
+});
 
 export default store;

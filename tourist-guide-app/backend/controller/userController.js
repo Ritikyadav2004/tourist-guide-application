@@ -502,8 +502,10 @@ exports.forgotPassword = async (req, res) => {
     const resetToken = user.getResetPasswordToken();
     await user.save({ validateBeforeSave: false });
 
-    // Create reset URL
-    const resetPasswordUrl = `${req.protocol}://${req.get("host")}/api/v1/password/reset/${resetToken}`;
+    // Create reset URL pointing to the frontend reset page
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+    const resetPasswordUrl = `${frontendUrl}/reset/${resetToken}`;
+    console.log("Generated Reset Password URL:", resetPasswordUrl);
 
     const message = `Your password reset link:\n\n${resetPasswordUrl}\n\nThis link is valid for 15 minutes.\n\nIf you did not request this, please ignore this email.`;
 

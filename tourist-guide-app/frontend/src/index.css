@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 /* Global resets and responsive base */
@@ -8,7 +9,7 @@
 }
 
 body {
-  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: "Plus Jakarta Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
   color: #0f172a;
   -webkit-font-smoothing: antialiased;
@@ -23,6 +24,7 @@ body {
 
 /* Modern typography */
 h1, h2, h3, h4, h5, h6 {
+  font-family: "Outfit", sans-serif;
   font-weight: 700;
   line-height: 1.2;
   color: #1e293b;
@@ -223,4 +225,24 @@ textarea:focus-visible,
 a:focus-visible {
   outline: 2px solid #3b82f6;
   outline-offset: 2px;
+}
+
+/* Custom Section Headings */
+h2.section-title {
+  font-family: "Outfit", sans-serif !important;
+  font-size: clamp(2rem, 3.5vw, 2.5rem) !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.03em !important;
+  color: #0f172a !important;
+  line-height: 1.1 !important;
+  margin: 0 !important;
+}
+
+p.section-subtitle {
+  font-family: "Plus Jakarta Sans", sans-serif !important;
+  font-size: clamp(0.85rem, 1.5vw, 0.95rem) !important;
+  color: #64748b !important;
+  margin: 8px 0 0 0 !important;
+  font-weight: 500 !important;
+  line-height: 1.5 !important;
 }

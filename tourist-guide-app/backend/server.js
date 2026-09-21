@@ -2,6 +2,8 @@ const path = require("path");
 const dotenv = require("dotenv");
 const http = require("http");
 
+
+
 // Load env FIRST - before any other requires
 dotenv.config({ path: path.join(__dirname, "config", "config.env") });
 
@@ -12,7 +14,7 @@ const { setupSocket } = require("./socket/socket");
 
 // handle uncaught errors
 process.on("uncaughtException", (err) => {
-  console.log('Uncaught Exception:', err.message);
+  console.error('💥 Uncaught Exception:', err.stack || err.message || err);
   process.exit(1);
 });
 
@@ -28,7 +30,11 @@ server.listen(process.env.PORT, () => {
 });
 
 // handle promise errors
-process.on("unhandledRejection", (err) => {
-  console.log('Unhandled Rejection:', err.message);
-  server.close(() => process.exit(1));
+process.on("unhandledRejection", (reason, promise) => {
+  console.error('⚠️ Unhandled Rejection at:', promise, 'reason:', reason);
+  // Log stack trace if reason is an Error object
+  if (reason && reason.stack) {
+    console.error(reason.stack);
+  }
+  // Prevent server crash (do not exit the process)
 });

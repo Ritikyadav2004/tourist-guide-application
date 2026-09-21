@@ -1,5 +1,6 @@
 // controllers/postController.js
 const Post = require('../models/post');
+const User = require('../models/userModel');
 const cloudinary = require('../config/cloudinary');
 const { sendNotification, NotificationTemplates } = require('../utils/notificationHelper');
 
@@ -676,5 +677,91 @@ exports.updatePost = async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: "Server error" });
+    }
+};
+
+// SAVE POST TO ITINERARY
+exports.savePost = async (req, res) => {
+    try {
+        console.log(`[savePost] Starting save for user: ${req.user._id}, post ID: ${req.params.postId}`);
+        const post = await Post.findById(req.params.postId);
+        if (!post) {
+            console.log(`[savePost] Post not found: ${req.params.postId}`);
+            return res.status(404).json({ success: false, error: "Post not found" });
+        }
+
+        const user = await User.findByIdAndUpdate(
+            req.user._id,
+            { $addToSet: { savedPosts: post._id } },
+            { new: true }
+        );
+
+        console.log(`[savePost] Database updated successfully. User ${req.user._id} savedPosts now has:`, user.savedPosts);
+
+        const populatedUser = await user.populate({
+            path: 'savedPosts',
+            populate: [
+                { path: 'postedBy', select: 'name email avatar' },
+                { path: 'comments.commentedBy', select: 'name avatar' }
+            ]
+        });
+
+        res.json({ success: true, message: "Saved to your itinerary", savedPosts: populatedUser.savedPosts });
+    } catch (error) {
+        console.error("[savePost] Error saving post:", error);
+        res.status(500).json({ success: false, error: "Server error" });
+    }
+};
+
+// UNSAVE POST FROM ITINERARY
+exports.unsavePost = async (req, res) => {
+    try {
+        console.log(`[unsavePost] Starting unsave for user: ${req.user._id}, post ID: ${req.params.postId}`);
+        const user = await User.findByIdAndUpdate(
+            req.user._id,
+            { $pull: { savedPosts: req.params.postId } },
+            { new: true }
+        );
+
+        console.log(`[unsavePost] Database updated successfully. User ${req.user._id} savedPosts now has:`, user.savedPosts);
+
+        const populatedUser = await user.populate({
+            path: 'savedPosts',
+            populate: [
+                { path: 'postedBy', select: 'name email avatar' },
+                { path: 'comments.commentedBy', select: 'name avatar' }
+            ]
+        });
+
+        res.json({ success: true, message: "Removed from itinerary", savedPosts: populatedUser.savedPosts });
+    } catch (error) {
+        console.error("[unsavePost] Error unsaving post:", error);
+        res.status(500).json({ success: false, error: "Server error" });
+    }
+};
+
+// GET SAVED POSTS
+exports.getSavedPosts = async (req, res) => {
+    try {
+        console.log(`[getSavedPosts] Fetching saved posts for user: ${req.user._id}`);
+        const user = await User.findById(req.user._id)
+            .populate({
+                path: 'savedPosts',
+                populate: [
+                    { path: 'postedBy', select: 'name email avatar' },
+                    { path: 'comments.commentedBy', select: 'name avatar' }
+                ]
+            });
+
+        if (!user) {
+            console.log(`[getSavedPosts] User not found: ${req.user._id}`);
+            return res.status(404).json({ success: false, error: "User not found" });
+        }
+
+        console.log(`[getSavedPosts] Retrieved ${user.savedPosts ? user.savedPosts.length : 0} saved posts for user: ${req.user._id}`);
+        res.json({ success: true, savedPosts: user.savedPosts || [] });
+    } catch (error) {
+        console.error("[getSavedPosts] Error fetching saved posts:", error);
+        res.status(500).json({ success: false, error: "Server error" });
     }
 };

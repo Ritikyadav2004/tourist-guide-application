@@ -1,0 +1,92 @@
+/* CityChips.css - Horizontal scrollable city filter chips */
+.gg-city-chips-section {
+  padding: 18px 16px 12px;
+  background-color: #ffffff;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.gg-city-chips-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.gg-city-chips-title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #64748b;
+  margin: 0;
+}
+
+.gg-city-chips-scroll {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 4px 2px 10px 2px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+.gg-city-chips-scroll::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+/* Individual Chip */
+.gg-city-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #f8fafc;
+  color: #334155;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 24px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  min-height: 48px; /* Thumb-friendly touch target */
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.gg-city-chip:hover {
+  background-color: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+/* Active Chip - Primary Teal */
+.gg-city-chip.active {
+  background-color: #0d9488;
+  color: #ffffff;
+  border-color: #0d9488;
+  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.35);
+  transform: translateY(-1px);
+}
+
+.gg-city-chip-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+@media (max-width: 480px) {
+  .gg-city-chips-section {
+    padding: 14px 12px 8px;
+  }
+
+  .gg-city-chip {
+    padding: 8px 14px;
+    font-size: 13.5px;
+    min-height: 44px;
+  }
+}

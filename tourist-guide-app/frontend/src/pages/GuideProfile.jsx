@@ -4,8 +4,6 @@ import { useDispatch, useSelector } from "react-redux";
 import Navbar from "../Dashboard/Navbar";
 import { loadUser } from "../action/authActions";
 import {
-  createBooking,
-  getGuideAvailability,
   getGuideReviews,
   getGuideReviewStats,
   getGuides,
@@ -14,6 +12,37 @@ import {
 import "./GuideProfile.css";
 
 const API_BASE = import.meta.env.VITE_API_URL || "https://gullyguide-backend.onrender.com";
+
+const hasGuideImage = (guide) => {
+  const src = guide?.avatar || guide?.photo || guide?.image;
+  return src && src !== "default-avatar-url" && src !== "default_avatar.jpg" && src !== "/default_profile.jpg";
+};
+
+const getInitials = (name) => {
+  if (!name) return "?";
+  const parts = name.trim().split(" ");
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+};
+
+const getAvatarBgColor = (name) => {
+  if (!name) return "#0f766e";
+  const colors = [
+    "#0f766e", // deep brand teal
+    "#14b8a6", // bright teal
+    "#004d40", // dark pine teal
+    "#80cbc4", // soft mint teal
+    "#0d9488", // vibrant medium teal
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % colors.length;
+  return colors[index];
+};
 
 const getGuideSlug = (guide) =>
   encodeURIComponent(guide?._id || guide?.name || "guide");
@@ -65,18 +94,10 @@ const GuideProfile = () => {
   const [guidePosts, setGuidePosts] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [reviewStats, setReviewStats] = useState(null);
-  const [availability, setAvailability] = useState({ blockedRanges: [], bookings: [] });
+  const [similarGuides, setSimilarGuides] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [bookingMessage, setBookingMessage] = useState("");
-  const [bookingError, setBookingError] = useState("");
-  const [bookingSubmitting, setBookingSubmitting] = useState(false);
   const [bookingForm, setBookingForm] = useState({
     postId: "",
-    startDate: "",
-    endDate: "",
-    durationType: "full-day",
-    numberOfPeople: 1,
-    specialRequests: "",
   });
 
   useEffect(() => {
@@ -136,24 +157,56 @@ const GuideProfile = () => {
           postId: nextGuidePosts[0]?._id || "",
         }));
 
+        if (resolvedGuide) {
+          const currentCity = resolvedGuide.location?.city?.trim().toLowerCase();
+          const currentState = resolvedGuide.location?.state?.trim().toLowerCase();
+
+          let filteredSimilar = list.filter((g) => {
+            if (String(g._id) === String(resolvedGuide._id)) return false;
+            const gCity = g.location?.city?.trim().toLowerCase();
+            const gState = g.location?.state?.trim().toLowerCase();
+            
+            const cityMatch = currentCity && gCity && gCity === currentCity;
+            const stateMatch = currentState && gState && gState === currentState;
+            
+            return cityMatch || stateMatch;
+          });
+
+          if (filteredSimilar.length < 2) {
+            filteredSimilar = list
+              .filter((g) => String(g._id) !== String(resolvedGuide._id))
+              .sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
+          }
+
+          const similarWithDetails = filteredSimilar.slice(0, 4).map((g) => {
+            const gPosts = allPosts.filter(p => String(p.postedBy?._id || p.postedBy) === String(g._id));
+            const prices = gPosts.map(p => Number(p.price)).filter(Number.isFinite);
+            const minPrice = prices.length ? Math.min(...prices) : (g.price || 0);
+
+            return {
+              ...g,
+              startingPrice: minPrice
+            };
+          });
+
+          setSimilarGuides(similarWithDetails);
+        } else {
+          setSimilarGuides([]);
+        }
+
         if (resolvedGuide?._id) {
-          const from = todayInputValue();
-          const to = addDaysInputValue(from, 41);
-          const [reviewsResponse, statsResponse, availabilityResponse] = await Promise.all([
+          const [reviewsResponse, statsResponse] = await Promise.all([
             getGuideReviews(resolvedGuide._id),
             getGuideReviewStats(resolvedGuide._id),
-            getGuideAvailability(resolvedGuide._id, { from, to }),
           ]);
 
           if (!mounted) return;
 
           setReviews(Array.isArray(reviewsResponse?.reviews) ? reviewsResponse.reviews : []);
           setReviewStats(statsResponse || null);
-          setAvailability(availabilityResponse?.availability || { blockedRanges: [], bookings: [] });
         } else {
           setReviews([]);
           setReviewStats(null);
-          setAvailability({ blockedRanges: [], bookings: [] });
         }
       } catch (err) {
         console.error("Failed to fetch guide profile", err);
@@ -167,7 +220,6 @@ const GuideProfile = () => {
           setGuidePosts([]);
           setReviews([]);
           setReviewStats(null);
-          setAvailability({ blockedRanges: [], bookings: [] });
         }
       }
 
@@ -193,7 +245,9 @@ const GuideProfile = () => {
 
   const avatarSrc = useMemo(() => {
     const src = guide?.avatar || guide?.photo || guide?.image;
-    if (!src) return "/default_profile.jpg";
+    if (!src || src === "default-avatar-url" || src === "default_avatar.jpg") {
+      return "/default_profile.jpg";
+    }
     return src.startsWith("http") ? src : `${API_BASE}/uploads/${src}`;
   }, [guide]);
 
@@ -207,19 +261,6 @@ const GuideProfile = () => {
     return Number.isFinite(price) ? price : null;
   }, [selectedPost]);
 
-  const bookedDayCount = useMemo(() => {
-    if (!bookingForm.startDate || !bookingForm.endDate) return 1;
-    const start = new Date(`${bookingForm.startDate}T00:00:00.000Z`);
-    const end = new Date(`${bookingForm.endDate}T00:00:00.000Z`);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return 1;
-
-    const days = Math.floor((end - start) / (24 * 60 * 60 * 1000)) + 1;
-
-    if (bookingForm.durationType === "half-day") return 0.5;
-    if (bookingForm.durationType === "full-day") return 1;
-    return days;
-  }, [bookingForm.startDate, bookingForm.endDate, bookingForm.durationType]);
-
   const reviewDistribution = useMemo(() => {
     const distribution = reviewStats?.ratingDistribution || {};
     return [5, 4, 3, 2, 1].map((rating) => ({
@@ -227,104 +268,6 @@ const GuideProfile = () => {
       count: distribution[rating] || 0,
     }));
   }, [reviewStats]);
-
-  const availabilityDays = useMemo(() => {
-    const firstDay = todayInputValue();
-    return Array.from({ length: 35 }, (_, index) => {
-      const value = addDaysInputValue(firstDay, index);
-      const booked = availability.bookings?.find((range) => dateInRange(value, range));
-      const blocked = availability.blockedRanges?.find((range) => dateInRange(value, range));
-
-      return {
-        value,
-        label: new Date(`${value}T00:00:00.000Z`).toLocaleDateString(undefined, {
-          day: "numeric",
-          month: "short",
-        }),
-        state: booked ? "booked" : blocked ? "blocked" : "available",
-        note: booked?.post?.title || blocked?.reason || "",
-      };
-    });
-  }, [availability]);
-
-  const handleBookingChange = (event) => {
-    const { name, value } = event.target;
-    setBookingForm((current) => ({ ...current, [name]: value }));
-  };
-
-  const handleBookingSubmit = async (event) => {
-    event.preventDefault();
-
-    if (!token) {
-      navigate("/login");
-      return;
-    }
-
-    if (!bookingForm.postId) {
-      setBookingError("Please select a guide trip before booking.");
-      setBookingMessage("");
-      return;
-    }
-
-    if (!bookingForm.startDate || !bookingForm.endDate) {
-      setBookingError("Please choose start and end dates.");
-      setBookingMessage("");
-      return;
-    }
-
-    if (new Date(bookingForm.endDate) < new Date(bookingForm.startDate)) {
-      setBookingError("End date cannot be before start date.");
-      setBookingMessage("");
-      return;
-    }
-
-    const normalizedPeople = Number(bookingForm.numberOfPeople);
-    if (!Number.isFinite(normalizedPeople) || normalizedPeople < 1 || normalizedPeople > 20) {
-      setBookingError("Number of people must be between 1 and 20.");
-      setBookingMessage("");
-      return;
-    }
-
-    if (selectedPostPrice === null) {
-      setBookingError("This guide post has no valid price yet, so it cannot be booked.");
-      setBookingMessage("");
-      return;
-    }
-
-    setBookingSubmitting(true);
-    setBookingError("");
-    setBookingMessage("");
-
-try {
-       const response = await createBooking({
-         postId: bookingForm.postId,
-         startDate: bookingForm.startDate,
-         endDate: bookingForm.endDate,
-         durationType: bookingForm.durationType,
-         numberOfPeople: normalizedPeople,
-         specialRequests: bookingForm.specialRequests,
-       });
-
-      setBookingMessage(response?.message || "Booking request sent successfully.");
-      if (guide?._id) {
-        const from = todayInputValue();
-        const to = addDaysInputValue(from, 41);
-        const availabilityResponse = await getGuideAvailability(guide._id, { from, to });
-        setAvailability(availabilityResponse?.availability || { blockedRanges: [], bookings: [] });
-      }
-      setBookingForm((current) => ({
-        ...current,
-        startDate: "",
-        endDate: "",
-        numberOfPeople: 1,
-        specialRequests: "",
-      }));
-    } catch (error) {
-      setBookingError(error?.message || "Unable to send booking request.");
-    } finally {
-      setBookingSubmitting(false);
-    }
-  };
 
   const handleMessageGuide = () => {
     if (!guide?._id) return;
@@ -371,10 +314,27 @@ try {
       <Navbar />
       <div className="guide-profile page">
         <div className="guide-hero">
-          <img src={avatarSrc} alt={guide.name} />
+          {hasGuideImage(guide) ? (
+            <img src={avatarSrc} alt={guide.name} />
+          ) : (
+            <div
+              className="guide-hero-initials"
+              style={{ backgroundColor: getAvatarBgColor(guide.name) }}
+            >
+              {getInitials(guide.name)}
+            </div>
+          )}
           <div className="guide-meta">
-            <p className="eyebrow">Local guide</p>
-            <h1>{guide.name}</h1>
+            {guide.isVerified ? (
+              <span className="badge-verified">
+                <i className="fa-solid fa-circle-check"></i> Verified Guide
+              </span>
+            ) : (
+              <span className="badge-neutral">
+                Local Guide
+              </span>
+            )}
+            <h1 style={{ marginTop: "12px" }}>{guide.name}</h1>
             <p className="muted">{locationText}</p>
             <div className="guide-tags">
               {guide.languages?.length ? (
@@ -387,6 +347,20 @@ try {
               <span className="pill">
                 Rating: {reviewStats?.averageRating || guide.averageRating || 0}/5
               </span>
+            </div>
+            <div className="trust-badges-row">
+              <div className="trust-badge" title="Completed Trips">
+                <i className="fa-solid fa-suitcase"></i>
+                <span>{guide.completedTrips || 0} Trips Completed</span>
+              </div>
+              <div className="trust-badge" title="Response Time">
+                <i className="fa-solid fa-bolt"></i>
+                <span>Usually responds within a day</span>
+              </div>
+              <div className="trust-badge" title="Registration Date">
+                <i className="fa-solid fa-calendar-days"></i>
+                <span>{guide.createdAt ? `Member since ${new Date(guide.createdAt).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}` : "Member since recently"}</span>
+              </div>
             </div>
             <div className="cta-row">
               <a className="primary-btn" href={guide.phone ? `tel:${guide.phone}` : `mailto:${guide.email || ""}`}>
@@ -401,7 +375,7 @@ try {
                 Back
               </button>
               {token ? (
-                <button className="ghost-btn" onClick={() => navigate("/dashboard/bookings")}>
+                <button className="ghost-btn" onClick={() => navigate(`/custom-package?guideId=${guide?._id || ""}`)}>
                   Open bookings
                 </button>
               ) : null}
@@ -462,6 +436,14 @@ try {
                       {Number.isFinite(Number(post.price)) ? null : (
                         <small className="guide-post-warning">Update required before booking</small>
                       )}
+                      <div className="post-card-details">
+                        <span className="post-detail-item">
+                          <i className="fa-solid fa-clock"></i> {post.duration || "Flexible duration"}
+                        </span>
+                        <span className="post-detail-item">
+                          <i className="fa-solid fa-users"></i> {post.maxGroupSize ? `Up to ${post.maxGroupSize} people` : "Any group size"}
+                        </span>
+                      </div>
                     </div>
                   </button>
                 ))}
@@ -488,137 +470,113 @@ try {
                   </Link>
                 </div>
               ) : !isTourist ? (
-                <div className="notice-box">
-                  <p>Only tourist accounts can create bookings.</p>
+                <div className="booking-mockup-container">
+                  <div className="mockup-header-badge">
+                    <i className="fa-solid fa-eye"></i> This is how tourists see your booking panel
+                  </div>
+                  <form className="booking-form mockup-disabled" onSubmit={(e) => e.preventDefault()}>
+                    <label>
+                      Selected trip
+                      <select name="postId" value={bookingForm.postId} disabled required>
+                        {guidePosts.length ? (
+                          guidePosts.map((post) => (
+                            <option key={post._id} value={post._id}>
+                              {post.title} - {Number.isFinite(Number(post.price)) ? `Rs. ${post.price}` : "Price unavailable"}
+                            </option>
+                          ))
+                        ) : (
+                          <option value="">No experiences created yet</option>
+                        )}
+                      </select>
+                    </label>
+
+                    <div className="booking-form__row">
+                      <label>
+                        Start date
+                        <input
+                          type="date"
+                          name="startDate"
+                          value=""
+                          disabled
+                          required
+                        />
+                      </label>
+
+                      <label>
+                        End date
+                        <input
+                          type="date"
+                          name="endDate"
+                          value=""
+                          disabled
+                          required
+                        />
+                      </label>
+
+                      <label>
+                        People
+                        <input
+                          type="number"
+                          value="1"
+                          disabled
+                          required
+                        />
+                      </label>
+
+                      <label>
+                        Tour duration
+                        <select name="durationType" disabled>
+                          <option value="full-day">Full-day (8 hours)</option>
+                        </select>
+                      </label>
+                    </div>
+
+                    <label>
+                      Special requests
+                      <textarea
+                        name="specialRequests"
+                        rows="3"
+                        disabled
+                        placeholder="Pickup point, food, or timing requests"
+                      />
+                    </label>
+
+                    <div className="booking-summary" style={{ opacity: 0.7 }}>
+                      <span>Estimated total</span>
+                      <strong>
+                        {selectedPostPrice !== null
+                          ? `Rs. ${selectedPostPrice}`
+                          : "Unavailable"}
+                      </strong>
+                      <small>Full-day tour</small>
+                    </div>
+
+                    <button type="button" className="primary-btn" style={{ background: "#94a3b8", cursor: "not-allowed" }} disabled>
+                      Send booking request
+                    </button>
+                  </form>
                 </div>
               ) : !guidePosts.length ? (
                 <div className="notice-box">
                   <p>No trip post is available for booking yet.</p>
                 </div>
               ) : (
-                <form className="booking-form" onSubmit={handleBookingSubmit}>
-                  <label>
-                    Selected trip
-                    <select name="postId" value={bookingForm.postId} onChange={handleBookingChange} required>
-                      {guidePosts.map((post) => (
-                        <option key={post._id} value={post._id}>
-                          {post.title} - {Number.isFinite(Number(post.price)) ? `Rs. ${post.price}` : "Price unavailable"}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <div className="availability-strip" aria-label="Guide availability calendar">
-                    {availabilityDays.map((day) => (
-                      <button
-                        key={day.value}
-                        type="button"
-                        className={`availability-day is-${day.state}`}
-                        disabled={day.state !== "available"}
-                        title={day.note || day.state}
-                        onClick={() =>
-                          setBookingForm((current) => ({
-                            ...current,
-                            startDate: day.value,
-                            endDate: current.endDate && current.endDate >= day.value ? current.endDate : day.value,
-                          }))
-                        }
-                      >
-                        <span>{day.label}</span>
-                        <small>{day.state}</small>
-                      </button>
-                    ))}
-                  </div>
-
-<div className="booking-form__row">
-                     <label>
-                       Start date
-                       <input
-                         type="date"
-                         min={todayInputValue()}
-                         name="startDate"
-                         value={bookingForm.startDate}
-                         onChange={handleBookingChange}
-                         required
-                       />
-                     </label>
-
-                     <label>
-                       End date
-                       <input
-                         type="date"
-                         min={bookingForm.startDate || todayInputValue()}
-                         name="endDate"
-                         value={bookingForm.endDate}
-                         onChange={handleBookingChange}
-                         required
-                       />
-                     </label>
-
-                     <label>
-                       People
-                       <input
-                         type="number"
-                         min="1"
-                         max="20"
-                         name="numberOfPeople"
-                         value={bookingForm.numberOfPeople}
-                         onChange={handleBookingChange}
-                         required
-                       />
-                     </label>
-
-                     <label>
-                       Tour duration
-                       <select
-                         name="durationType"
-                         value={bookingForm.durationType}
-                         onChange={handleBookingChange}
-                       >
-                         <option value="half-day">Half-day (4 hours)</option>
-                         <option value="full-day">Full-day (8 hours)</option>
-                         <option value="multi-day">Multi-day (overnight)</option>
-                       </select>
-                     </label>
-                   </div>
-
-                  <label>
-                    Special requests
-                    <textarea
-                      name="specialRequests"
-                      rows="4"
-                      maxLength="500"
-                      value={bookingForm.specialRequests}
-                      onChange={handleBookingChange}
-                      placeholder="Food preferences, language requests, or tour notes"
-                    />
-                  </label>
-
-{selectedPost ? (
-                     <div className="booking-summary">
-                       <span>Estimated total</span>
-                       <strong>
-                         {selectedPostPrice !== null
-                           ? `Rs. ${selectedPostPrice * Number(bookingForm.numberOfPeople || 1) * bookedDayCount}`
-                           : "Unavailable"}
-                       </strong>
-                       <small>
-                         {bookingForm.durationType === "half-day"
-                           ? "Half-day tour"
-                           : bookingForm.durationType === "full-day"
-                           ? "Full-day tour"
-                           : `${bookedDayCount} day${bookedDayCount === 1 ? "" : "s"}`}
-                       </small>
-                     </div>
-                   ) : null}
-
-                  {bookingMessage ? <div className="inline-message is-success">{bookingMessage}</div> : null}
-                  {bookingError ? <div className="inline-message is-error">{bookingError}</div> : null}
-
-                  <button type="submit" className="primary-btn" disabled={bookingSubmitting}>
-                    {bookingSubmitting ? "Sending..." : "Send booking request"}
+                <div className="booking-redirect-card" style={{ padding: "20px", background: "#f8fafc", borderRadius: "12px", border: "1px solid #e2e8f0", textAlign: "center" }}>
+                  <p style={{ fontWeight: 600, color: "#475569", marginBottom: "16px", fontSize: "14px" }}>
+                    Ready to book? Click below to select dates, set group size, and customize your experience with {guide.name}.
+                  </p>
+                  <button
+                    type="button"
+                    className="primary-btn"
+                    style={{ width: "100%", padding: "12px", fontSize: "15px", fontWeight: "bold" }}
+                    onClick={() => {
+                      const selPostId = bookingForm.postId || (guidePosts[0]?._id) || "";
+                      navigate(`/custom-package?guideId=${guide._id}&postId=${selPostId}`);
+                    }}
+                  >
+                    Book / Customize Package
                   </button>
-                </form>
+                </div>
               )}
             </div>
 
@@ -677,16 +635,48 @@ try {
             </div>
           </section>
 
-          <section>
-            <h3>Similar guides</h3>
-            <div className="similar-row">
-              <Link to="/dashboard" className="pill-link">
-                Explore more guides
-              </Link>
-              <Link to="/state/Delhi" className="pill-link">
-                Delhi guides
-              </Link>
-            </div>
+          <section className="similar-guides-section">
+            <h3>Similar Guides</h3>
+            {similarGuides.length ? (
+              <div className="similar-guides-grid">
+                {similarGuides.map((g) => {
+                  const gSlug = getGuideSlug(g);
+                  const gImg = g.avatar || g.photo || g.image;
+                  const avatarUrl = !gImg || gImg === "default-avatar-url" || gImg === "default_avatar.jpg"
+                    ? "/default_profile.jpg"
+                    : gImg.startsWith("http") ? gImg : `${API_BASE}/uploads/${gImg}`;
+                  const gLoc = g.location
+                    ? [g.location.city, g.location.state].filter(Boolean).join(", ")
+                    : "Location not provided";
+
+                  return (
+                    <div key={g._id} className="similar-guide-card">
+                      <Link className="similar-guide-image-link" to={`/guide/${gSlug}`}>
+                        <img src={avatarUrl} alt={g.name} />
+                      </Link>
+                      <div className="similar-guide-card-body">
+                        <Link to={`/guide/${gSlug}`}>
+                          <h4>{g.name}</h4>
+                        </Link>
+                        <p className="similar-guide-location">{gLoc}</p>
+                        <div className="similar-guide-rating">
+                          <i className="fa-solid fa-star"></i>
+                          <span>{g.averageRating || 0} / 5</span>
+                        </div>
+                        <p className="similar-guide-price">
+                          Starting at Rs. {Number(g.startingPrice || 0).toLocaleString("en-IN")}
+                        </p>
+                        <Link to={`/guide/${gSlug}`} className="similar-guide-profile-link">
+                          View Profile
+                        </Link>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="muted">No similar guides found.</p>
+            )}
           </section>
         </div>
       </div>

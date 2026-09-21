@@ -1,4 +1,5 @@
 import "./Services.css";
+import AnimatedCounter from "../components/AnimatedCounter";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faShield,
@@ -12,7 +13,7 @@ const Services = () => {
     <div className="services">
       <div className="service-card">
         <div className="icon-box">
-          <FontAwesomeIcon icon={faShield} size="lg" />
+          <FontAwesomeIcon icon={faShield} size="xl" />
         </div>
         <h3>Verified Guides</h3>
         <p>
@@ -22,9 +23,11 @@ const Services = () => {
 
       <div className="service-card">
         <div className="icon-box">
-          <FontAwesomeIcon icon={faGlobe} size="lg" />
+          <FontAwesomeIcon icon={faGlobe} size="xl" />
         </div>
-        <h3>100+ Destinations</h3>
+        <h3>
+          <AnimatedCounter end={100} suffix="+" /> Destinations
+        </h3>
         <p>
           Explore guides across the globe in over 100 stunning destinations.
         </p>
@@ -32,7 +35,7 @@ const Services = () => {
 
       <div className="service-card">
         <div className="icon-box">
-          <FontAwesomeIcon icon={faHeadset} size="lg" />
+          <FontAwesomeIcon icon={faHeadset} size="xl" />
         </div>
         <h3>24/7 Support</h3>
         <p>
@@ -42,7 +45,7 @@ const Services = () => {
 
       <div className="service-card">
         <div className="icon-box">
-          <FontAwesomeIcon icon={faCreditCard} size="lg" />
+          <FontAwesomeIcon icon={faCreditCard} size="xl" />
         </div>
         <h3>Secure Payments</h3>
         <p>

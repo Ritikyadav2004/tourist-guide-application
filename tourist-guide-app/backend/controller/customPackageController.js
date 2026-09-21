@@ -1,6 +1,7 @@
 const CustomPackage = require('../models/customPackage-Model');
 const Post = require('../models/post');
 const Asset = require('../models/asset-Model');
+const Booking = require('../models/booking-Model');
 
 const defaultGroupDiscounts = [
     { minPeople: 5, discountPercent: 10 },
@@ -57,9 +58,29 @@ const calculateEstimate = async (postId, selectedAssets, numberOfPeople, startDa
                 throw new Error(`Asset with ID ${item.assetId} not found`);
             }
 
-            // Check if quantity is available
-            if (item.quantity > asset.quantityAvailable) {
-                throw new Error(`Only ${asset.quantityAvailable} units of "${asset.name}" available`);
+            // Check if quantity is available for the selected dates
+            const overlappingBookings = await Booking.find({
+                status: { $in: ['pending', 'confirmed'] },
+                startDate: { $lte: new Date(endDate) },
+                endDate: { $gte: new Date(startDate) },
+                customPackageId: { $ne: null }
+            }).populate('customPackageId');
+
+            let bookedQty = 0;
+            for (const b of overlappingBookings) {
+                if (b.customPackageId && b.customPackageId.selectedAssets) {
+                    const assetItem = b.customPackageId.selectedAssets.find(
+                        a => a.assetId.toString() === item.assetId.toString()
+                    );
+                    if (assetItem) {
+                        bookedQty += assetItem.quantity;
+                    }
+                }
+            }
+
+            const netAvailable = Math.max(0, asset.quantityAvailable - bookedQty);
+            if (item.quantity > netAvailable) {
+                throw new Error(`Only ${netAvailable} units of "${asset.name}" available for the selected dates`);
             }
 
             const pricePerDay = Number(asset.pricePerDay);

@@ -8,7 +8,7 @@ import {
   verifyPaymentAction,
   clearPaymentState,
   clearPaymentError,
-} from "../../action/paymentActions";
+} from "../../slices/paymentSlice";
 import { getBookingDetails } from "../../services/api";
 import "./PaymentPage.css";
 
@@ -34,8 +34,7 @@ const PaymentPage = () => {
     }
 
     if (!bookingId) {
-      setBookingError("No booking selected.");
-      setLoadingBooking(false);
+      navigate("/dashboard/bookings", { replace: true });
       return;
     }
 
@@ -44,7 +43,7 @@ const PaymentPage = () => {
         const data = await getBookingDetails(bookingId);
         setBooking(data.booking);
         // Determine if deposit or final payment
-        if (data.booking?.paymentStatus === "deposit_pending") {
+        if (data.booking?.paymentStatus === "deposit_pending" || data.booking?.paymentStatus === "pending") {
           setPaymentMethod("deposit");
         } else if (data.booking?.paymentStatus === "final_pending") {
           setPaymentMethod("final");
@@ -66,7 +65,11 @@ const PaymentPage = () => {
 
   // Handle Razorpay payment
   const handlePayment = async () => {
-    const paymentType = paymentMethod === "final" ? "final" : "deposit";
+    const isDepositPending = booking?.paymentStatus === "deposit_pending" || booking?.paymentStatus === "pending";
+    const paymentType =
+      paymentMethod === "final"
+        ? (isDepositPending ? "full" : "final")
+        : "deposit";
 
     console.log("[PaymentPage:handlePayment] starting payment", {
       bookingId,
@@ -85,7 +88,7 @@ const PaymentPage = () => {
 
     try {
       // Step 1: Create Razorpay Order
-      const orderData = await dispatch(createOrderAction(bookingId, paymentType));
+      const orderData = await dispatch(createOrderAction({ bookingId, type: paymentType })).unwrap();
       console.log("[PaymentPage:handlePayment] order created", {
         bookingId,
         paymentType,
@@ -98,6 +101,26 @@ const PaymentPage = () => {
 
       if (!orderId) {
         throw new Error("Failed to create payment order.");
+      }
+
+      // Load Razorpay script dynamically to ensure reliability
+      let RazorpayConstructor = window.Razorpay;
+      if (!RazorpayConstructor) {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement("script");
+          script.src = "https://checkout.razorpay.com/v1/checkout.js";
+          script.async = true;
+          script.onload = () => {
+            RazorpayConstructor = window.Razorpay;
+            resolve();
+          };
+          script.onerror = () => reject(new Error("Failed to load Razorpay SDK. Please check your internet connection."));
+          document.body.appendChild(script);
+        });
+      }
+
+      if (!RazorpayConstructor) {
+        throw new Error("Razorpay SDK is not available.");
       }
 
       // Step 2: Open Razorpay Checkout
@@ -118,12 +141,12 @@ const PaymentPage = () => {
                 signature: response.razorpay_signature,
                 bookingId: bookingId,
               })
-            );
+            ).unwrap();
             // Redirect to success
-            navigate(`/payment/success?bookingId=${bookingId}`);
+            navigate(`/payment/success?bookingId=${bookingId}`, { state: { fromPayment: true } });
           } catch (verifyError) {
             // Redirect to failure
-            navigate(`/payment/failure?bookingId=${bookingId}&error=${verifyError.message}`);
+            navigate(`/payment/failure?bookingId=${bookingId}&error=${verifyError.message || verifyError}`);
           }
         },
         prefill: {
@@ -135,20 +158,12 @@ const PaymentPage = () => {
           bookingId: bookingId,
           paymentType,
         },
-        theme: {
-          color: "#22c55e",
-        },
-        modal: {
-          ondismiss: () => {
-            navigate(`/payment/failure?bookingId=${bookingId}&error=Payment cancelled by user`);
-          },
-        },
       };
 
-      const razorpay = new Razorpay(options);
-      razorpay.open();
+      const razorpayInstance = new RazorpayConstructor(options);
+      razorpayInstance.open();
     } catch (err) {
-      navigate(`/payment/failure?bookingId=${bookingId}&error=${err.message}`);
+      navigate(`/payment/failure?bookingId=${bookingId}&error=${err.message || err}`);
     }
   };
 
@@ -169,7 +184,8 @@ const PaymentPage = () => {
       <DashboardLayout>
         <div className="payment-page">
           <div className="payment-error-card">
-            <h2>❌ Unable to load booking</h2>
+            <div className="payment-state-icon error" aria-hidden="true">!</div>
+            <h2>Unable to load booking</h2>
             <p>{bookingError || "Booking not found."}</p>
             <Link to="/dashboard/bookings" className="payment-btn-primary">
               Back to Bookings
@@ -180,10 +196,50 @@ const PaymentPage = () => {
     );
   }
 
+  // Cancelled state safeguard
+  if (booking.status === "cancelled") {
+    return (
+      <DashboardLayout>
+        <div className="payment-page">
+          <div className="payment-error-card" style={{ borderTop: "4px solid #ef4444" }}>
+            <div className="payment-state-icon error" style={{ backgroundColor: "#fde8e8", color: "#ef4444" }} aria-hidden="true">!</div>
+            <h2>Booking Cancelled</h2>
+            <p>This booking has been cancelled and cannot accept further payments.</p>
+            <Link to="/dashboard/bookings" className="payment-btn-primary" style={{ backgroundColor: "#ef4444" }}>
+              Back to Bookings
+            </Link>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Already paid state safeguard
+  if (booking.paymentStatus === "fully_paid") {
+    return (
+      <DashboardLayout>
+        <div className="payment-page">
+          <div className="payment-error-card success-card" style={{ borderTop: "4px solid #10b981" }}>
+            <div className="payment-state-icon success" style={{ backgroundColor: "#e6f4ea", color: "#10b981", fontSize: "28px" }} aria-hidden="true">✓</div>
+            <h2>Booking already paid</h2>
+            <p>This booking has already been paid in full. No further action is required.</p>
+            <Link to="/dashboard/bookings" className="payment-btn-primary">
+              Back to Bookings
+            </Link>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   // Amount to pay
+  const isDepositPending = booking.paymentStatus === "deposit_pending" || booking.paymentStatus === "pending";
   const depositAmount = booking.depositAmount || Math.round(booking.totalPrice * 0.2);
-  const finalAmount = booking.finalAmount || Math.max((booking.totalPrice || 0) - depositAmount, 0);
-  const currentAmount = paymentMethod === "deposit" ? depositAmount : finalAmount;
+  const finalAmount = booking.finalAmount || Math.round(booking.totalPrice * 0.8);
+  const fullAmount = booking.totalPrice;
+
+  const payInFullAmount = isDepositPending ? fullAmount : finalAmount;
+  const currentAmount = paymentMethod === "deposit" ? depositAmount : payInFullAmount;
 
   // Check if payment is already completed
   if (booking.paymentStatus === "fully_paid") {
@@ -191,7 +247,8 @@ const PaymentPage = () => {
       <DashboardLayout>
         <div className="payment-page">
           <div className="payment-success-card">
-            <h2>✅ Booking Already Paid</h2>
+            <div className="payment-state-icon success" aria-hidden="true">✓</div>
+            <h2>Booking Already Paid</h2>
             <p>This booking has been fully paid.</p>
             <Link to={`/dashboard/bookings/${bookingId}`} className="payment-btn-primary">
               View Booking
@@ -207,7 +264,7 @@ const PaymentPage = () => {
       <div className="payment-page">
         <div className="payment-container">
           <div className="payment-header">
-            <h1>💳 Complete Your Payment</h1>
+            <h1>Complete Your Payment</h1>
             <p>Secure your booking with a deposit or pay in full.</p>
           </div>
 
@@ -238,7 +295,7 @@ const PaymentPage = () => {
               </div>
               <div className="summary-item">
                 <span>Total Price</span>
-                <strong>₹{booking.totalPrice}</strong>
+                <strong>Rs. {booking.totalPrice}</strong>
               </div>
               <div className="summary-item">
                 <span>Status</span>
@@ -253,20 +310,22 @@ const PaymentPage = () => {
           <div className="payment-options">
             <h3>Choose Payment Method</h3>
             <div className="option-group">
-              <label className={`option-card ${paymentMethod === "deposit" ? "selected" : ""}`}>
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="deposit"
-                  checked={paymentMethod === "deposit"}
-                  onChange={() => setPaymentMethod("deposit")}
-                />
-                <div className="option-content">
-                  <span className="option-title">Deposit (20%)</span>
-                  <span className="option-amount">₹{depositAmount}</span>
-                  <span className="option-desc">Secure your booking now</span>
-                </div>
-              </label>
+              {isDepositPending && (
+                <label className={`option-card ${paymentMethod === "deposit" ? "selected" : ""}`}>
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="deposit"
+                    checked={paymentMethod === "deposit"}
+                    onChange={() => setPaymentMethod("deposit")}
+                  />
+                  <div className="option-content">
+                    <span className="option-title">Deposit (20%)</span>
+                    <span className="option-amount">Rs. {depositAmount}</span>
+                    <span className="option-desc">Secure your booking now</span>
+                  </div>
+                </label>
+              )}
 
               <label className={`option-card ${paymentMethod === "final" ? "selected" : ""}`}>
                 <input
@@ -277,9 +336,9 @@ const PaymentPage = () => {
                   onChange={() => setPaymentMethod("final")}
                 />
                 <div className="option-content">
-                  <span className="option-title">Pay in Full</span>
-                  <span className="option-amount">₹{finalAmount}</span>
-                  <span className="option-desc">Complete payment now</span>
+                  <span className="option-title">{isDepositPending ? "Pay in Full" : "Pay Final Balance"}</span>
+                  <span className="option-amount">Rs. {payInFullAmount}</span>
+                  <span className="option-desc">{isDepositPending ? "Complete payment now" : "Settle remaining balance"}</span>
                 </div>
               </label>
             </div>
@@ -288,7 +347,7 @@ const PaymentPage = () => {
           {/* Total */}
           <div className="payment-total">
             <span>You will pay</span>
-            <strong>₹{currentAmount}</strong>
+            <strong>Rs. {currentAmount}</strong>
           </div>
 
           {/* Pay Button */}
@@ -297,11 +356,11 @@ const PaymentPage = () => {
             onClick={handlePayment}
             disabled={loading || !currentAmount}
           >
-            {loading ? "Processing..." : `Pay ₹${currentAmount} with Razorpay`}
+            {loading ? "Processing..." : `Pay Rs. ${currentAmount} with Razorpay`}
           </button>
 
           <p className="payment-secure">
-            🔒 Secured by Razorpay. Your payment is safe.
+            Secured by Razorpay. Your payment is safe.
           </p>
 
           <Link to={`/dashboard/bookings/${bookingId}`} className="payment-cancel-link">

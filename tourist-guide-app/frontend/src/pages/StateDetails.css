@@ -1,0 +1,391 @@
+/* Global reset overrides specifically for State Details Page viewport */
+#root {
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+body {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.state-details-page {
+  background: radial-gradient(circle at 10% 20%, #f1f5f9 0%, #e2e8f0 100%);
+  min-height: 100vh;
+  font-family: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+  color: #0f172a;
+  width: 100% !important;
+}
+
+/* Ensure the main container behaves as display block and is centered */
+.state-details-page main {
+  display: block !important;
+  width: 100% !important;
+  max-width: 1280px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+/* Premium Glass Container */
+.glass-section {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.05);
+  border-radius: 24px;
+  padding: 32px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.glass-section:hover {
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.08);
+}
+
+/* Hero styling */
+.hero-banner {
+  position: relative;
+  overflow: hidden;
+  height: 380px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 40px;
+  width: 100%;
+}
+
+.hero-overlay-gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, 
+    rgba(15, 23, 42, 0.25) 0%, 
+    rgba(15, 23, 42, 0.8) 60%, 
+    rgba(15, 23, 42, 0.95) 100%
+  );
+}
+
+.hero-eyebrow {
+  color: #7dd3fc !important; /* sky-300 */
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4) !important;
+}
+
+.hero-title {
+  font-size: 3.5rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  text-transform: capitalize;
+  line-height: 1.1;
+  color: #ffffff !important; /* Force white color for visibility */
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6) !important;
+}
+
+.hero-tagline {
+  color: #e2e8f0 !important;
+  font-size: 1.1rem;
+  line-height: 1.6;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6) !important;
+}
+
+.vibe-badge {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #e0f2fe;
+  padding: 6px 14px;
+  border-radius: 99px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.vibe-badge:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+/* Stat badge cards */
+.stat-pill {
+  background: rgba(255, 255, 255, 0.15) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff !important;
+  padding: 8px 18px;
+  border-radius: 99px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  backdrop-filter: blur(8px) !important;
+}
+
+/* City Navigator */
+.city-pills-container {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.city-pills-container::-webkit-scrollbar {
+  height: 6px;
+}
+
+.city-pills-container::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 99px;
+}
+
+.city-pill-btn {
+  white-space: nowrap;
+  padding: 10px 22px;
+  border-radius: 99px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+}
+
+.city-pill-btn:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.city-pill-btn.active {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  color: #ffffff;
+  border-color: #0f172a;
+  box-shadow: 0 8px 20px -6px rgba(15, 23, 42, 0.4);
+}
+
+/* Grid Layouts */
+.places-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 380px));
+  gap: 24px;
+  justify-content: center;
+}
+
+.place-card {
+  background: #ffffff;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+  border: 1px solid #f1f5f9;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.place-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 20px 30px -10px rgba(15, 23, 42, 0.12);
+}
+
+.place-img-wrap {
+  position: relative;
+  height: 180px;
+  overflow: hidden;
+}
+
+.place-img-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s ease;
+}
+
+.place-card:hover .place-img-wrap img {
+  transform: scale(1.06);
+}
+
+.place-badge {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(4px);
+  color: #ffffff;
+  padding: 4px 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: 99px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.place-info {
+  padding: 20px;
+}
+
+.place-info h4 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 8px;
+}
+
+.place-info p {
+  font-size: 0.9rem;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+/* Local Guides Section */
+.guides-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 380px));
+  gap: 24px;
+  justify-content: center;
+}
+
+.guide-card-premium {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 20px;
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+  border: 1px solid #f1f5f9;
+  text-decoration: none;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.guide-card-premium:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 30px -10px rgba(15, 23, 42, 0.08);
+  border-color: #e2e8f0;
+}
+
+.guide-avatar-wrap {
+  position: relative;
+  width: 90px;
+  height: 90px;
+  border-radius: 18px;
+  overflow: hidden;
+  flex-shrink: 0;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+}
+
+.guide-avatar-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.guide-badge {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #10b981;
+  color: #ffffff;
+  text-align: center;
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 2px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.guide-details {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.guide-name {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+
+.guide-loc {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin-bottom: 8px;
+}
+
+.guide-price-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+}
+
+.guide-price-label {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.guide-price-val {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0284c7;
+}
+
+.guide-view-btn {
+  background: #f1f5f9;
+  color: #334155;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 99px;
+  transition: all 0.2s ease;
+}
+
+.guide-card-premium:hover .guide-view-btn {
+  background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
+}
+
+/* Empty State Styling */
+.state-posts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 380px));
+  gap: 24px;
+  justify-content: center;
+}
+
+.empty-illustration {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.empty-illustration p {
+  color: #64748b;
+  font-size: 1rem;
+}
+
+/* Responsive adjustment */
+@media (max-width: 768px) {
+  .hero-title {
+    font-size: 2.5rem;
+  }
+  
+  .hero-banner {
+    height: 300px;
+    padding-bottom: 24px;
+  }
+  
+  .glass-section {
+    padding: 20px;
+  }
+  
+  .guide-card-premium {
+    padding: 16px;
+    gap: 16px;
+  }
+  
+  .guide-avatar-wrap {
+    width: 75px;
+    height: 75px;
+  }
+}

@@ -6,6 +6,36 @@ import { getUnreadChatCount } from "../services/api";
 import NotificationBell from "../components/NotificationBell";
 import "./Navbar.css";
 
+const hasAvatarImage = (avatar) => {
+  return avatar && avatar !== "default-avatar-url" && avatar !== "default_avatar.jpg" && avatar !== "/default_profile.jpg";
+};
+
+const getInitials = (name) => {
+  if (!name) return "?";
+  const parts = name.trim().split(" ");
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+};
+
+const getAvatarBgColor = (name) => {
+  if (!name) return "#0f766e";
+  const colors = [
+    "#0f766e", // deep brand teal
+    "#14b8a6", // bright teal
+    "#004d40", // dark pine teal
+    "#80cbc4", // soft mint teal
+    "#0d9488", // vibrant medium teal
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % colors.length;
+  return colors[index];
+};
+
 const Navbar = () => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -149,15 +179,17 @@ const Navbar = () => {
       </button>
 
       <div className={`navbar-center ${mobileOpen ? "show" : ""}`}>
-        <form className="search-box" onSubmit={handleSearchSubmit}>
-          <i className="fa fa-search"></i>
-          <input
-            type="text"
-            placeholder="Search guides by name or location..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </form>
+        {location.pathname !== "/" && location.pathname !== "/dashboard" && (
+          <form className="search-box" onSubmit={handleSearchSubmit}>
+            <i className="fa fa-search"></i>
+            <input
+              type="text"
+              placeholder="Search guides by name or location..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </form>
+        )}
       </div>
 
       <div className={`navbar-right ${mobileOpen ? "show" : ""}`} ref={dropdownRef}>
@@ -177,68 +209,52 @@ const Navbar = () => {
           </Link>
         </div>
 
-        {token ? (
-          <button
-            type="button"
-            className="messages-nav-trigger"
-            aria-label="Open messages"
-            onClick={() => {
-              navigate("/dashboard/messages");
-              closeMobile();
-            }}
-          >
-            <i className="fa fa-envelope"></i>
-            <span>Messages</span>
-            {unreadMessages ? <span className="badge badge-inline">{unreadMessages}</span> : null}
-          </button>
-        ) : null}
-
-        {token && !isGuide ? (
-          <button
-            type="button"
-            className="messages-nav-trigger"
-            aria-label="Open itinerary"
-            onClick={() => {
-              navigate("/dashboard/itinerary");
-              closeMobile();
-            }}
-          >
-            <i className="fa fa-map"></i>
-            <span>Itinerary</span>
-          </button>
-        ) : null}
-
-        {token && isGuide ? (
-          <button
-            type="button"
-            className="messages-nav-trigger"
-            aria-label="Open assets"
-            onClick={() => {
-              navigate("/dashboard/assets");
-              closeMobile();
-            }}
-          >
-            <i className="fa fa-box"></i>
-            <span>Assets</span>
-          </button>
-        ) : null}
-
-        {token ? <NotificationBell /> : null}
+        <button
+          type="button"
+          className="messages-nav-trigger"
+          aria-label="Open messages"
+          onClick={() => {
+            navigate(token ? "/dashboard/messages" : "/login");
+            closeMobile();
+          }}
+        >
+          <i className="fa fa-envelope"></i>
+          <span>Messages</span>
+          {unreadMessages ? <span className="badge badge-inline">{unreadMessages}</span> : null}
+        </button>
 
         <div
           className="profile"
           onClick={() => {
-            setDropdownOpen(!dropdownOpen);
+            if (token) {
+              setDropdownOpen(!dropdownOpen);
+            } else {
+              navigate("/login");
+            }
           }}
         >
-          <img
-            src={user?.avatar || localStorage.getItem("avatar") || "/default_profile.jpg"}
-            alt="profile"
-            onError={(e) => {
-              e.currentTarget.onerror = null;
-              e.currentTarget.src = "/default_profile.jpg";
-            }}
-          />
+          {token && hasAvatarImage(user?.avatar || localStorage.getItem("avatar")) ? (
+            <img
+              src={user?.avatar ? (user.avatar.startsWith("http") ? user.avatar : `http://localhost:5000/uploads/${user.avatar}`) : (localStorage.getItem("avatar")?.startsWith("http") ? localStorage.getItem("avatar") : `http://localhost:5000/uploads/${localStorage.getItem("avatar")}`)}
+              alt="profile"
+            />
+          ) : token ? (
+            <div
+              className="navbar-profile-initials"
+              style={{ backgroundColor: getAvatarBgColor(user?.name || localStorage.getItem("name") || "User") }}
+            >
+              {getInitials(user?.name || localStorage.getItem("name") || "User")}
+            </div>
+          ) : (
+            <img
+              src="https://res.cloudinary.com/dtezcdi5l/image/upload/v1779479356/GullyGuide/avatars/ulrtmx5lue9expbhy1rb.jpg"
+              alt="profile"
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = "/default_profile.jpg";
+              }}
+            />
+          )}
         </div>
 
         {dropdownOpen && user && (
@@ -294,17 +310,6 @@ const Navbar = () => {
               </div>
             )}
 
-            {token && !isGuide && (
-              <div
-                className="dropdown-item"
-                onClick={() => {
-                  navigate("/dashboard/itinerary");
-                  closeMobile();
-                }}
-              >
-                My Itinerary
-              </div>
-            )}
 
             {token && !isGuide && (
               <div
@@ -318,11 +323,11 @@ const Navbar = () => {
               </div>
             )}
 
-            {token && !isGuide && (
+            {token && !isGuide && !isAdmin && (
               <div
                 className="dropdown-item"
                 onClick={() => {
-                  navigate("/dashboard/payment");
+                  navigate("/dashboard/payments");
                   closeMobile();
                 }}
               >
@@ -342,16 +347,30 @@ const Navbar = () => {
               </div>
             )}
 
-             <div
-              className="dropdown-item"
-              onClick={() => {
-                navigate("/dashboard/guide/revenue");
-                closeMobile();
-              }}
-            >
-              💰 My Earnings
-            </div> 
-              
+            {isAdmin && (
+              <div
+                className="dropdown-item"
+                onClick={() => {
+                  navigate("/dashboard/payments");
+                  closeMobile();
+                }}
+              >
+                💰 Payments Dashboard
+              </div>
+            )}
+
+            {isGuide && (
+              <div
+                className="dropdown-item"
+                onClick={() => {
+                  navigate("/dashboard/payments");
+                  closeMobile();
+                }}
+              >
+                💰 My Earnings
+              </div>
+            )}
+
             <div
               className="dropdown-item"
               onClick={() => {

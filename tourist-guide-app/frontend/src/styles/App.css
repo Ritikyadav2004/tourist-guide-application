@@ -1,0 +1,138 @@
+/* App.css - Global typography (Poppins/Inter) & 40px+ section spacing */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800;900&display=swap');
+
+:root {
+  --gg-primary: #0d9488;
+  --gg-primary-dark: #0f766e;
+  --gg-primary-light: #ccfbf1;
+  --gg-cta: #f97316;
+  --gg-cta-hover: #ea580c;
+  --gg-bg: #ffffff;
+  --gg-surface: #f8fafc;
+  --gg-text: #0f172a;
+  --gg-text-muted: #64748b;
+  --gg-border: #e2e8f0;
+  --font-heading: 'Poppins', 'Inter', -apple-system, sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-body);
+  background-color: #ffffff;
+  color: var(--gg-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+}
+
+.gullyguide-app {
+  min-height: 100vh;
+  background-color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+.gg-main-content {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 40px+ Vertical Spacing between home sections */
+.gg-main-content > section,
+.gg-main-content > aside {
+  margin-bottom: 40px; /* 40px+ vertical spacing */
+}
+
+/* Explore tab active view */
+.gg-explore-view,
+.gg-bookings-view,
+.gg-chat-view,
+.gg-profile-view {
+  max-width: 800px;
+  margin: 40px auto 120px;
+  padding: 32px 16px;
+  text-align: center;
+}
+
+.gg-view-icon {
+  font-size: 52px;
+  margin-bottom: 14px;
+}
+
+.gg-view-title {
+  font-size: 26px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 10px;
+}
+
+.gg-view-desc {
+  font-size: 14.5px;
+  color: #64748b;
+  max-width: 460px;
+  margin: 0 auto 24px;
+  line-height: 1.55;
+}
+
+.gg-view-back-btn {
+  background-color: #0d9488;
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 26px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  min-height: 48px; /* Thumb-friendly 48px */
+  transition: background-color 0.2s ease;
+  font-family: var(--font-body);
+}
+
+.gg-view-back-btn:hover {
+  background-color: #0f766e;
+}
+
+/* Ensure thumb friendly minimum targets across the board */
+button,
+input,
+select {
+  font-family: inherit;
+}
+
+/* Notification toast */
+.gg-toast-notification {
+  position: fixed;
+  top: 76px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #0f172a;
+  color: #ffffff;
+  padding: 12px 24px;
+  border-radius: 28px;
+  font-size: 13.5px;
+  font-weight: 600;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.25);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: fadeIn 0.25s ease;
+  font-family: var(--font-body);
+}

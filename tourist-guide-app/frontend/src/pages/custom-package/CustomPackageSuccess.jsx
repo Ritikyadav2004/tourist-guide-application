@@ -79,11 +79,11 @@ const CustomPackageSuccess = () => {
                 assets.map((item, index) => (
                   <div key={item.assetId || item._id || index} className="flex items-center justify-between rounded-2xl bg-slate-50 p-4">
                     <div>
-                      <strong className="text-slate-900">{item.asset?.name || item.name || "Asset"}</strong>
+                      <strong className="text-slate-900">{item.assetId?.name || item.name || "Asset"}</strong>
                       <p className="text-sm text-slate-500">Quantity {item.quantity || 1}</p>
                     </div>
                     <span className="rounded-full bg-white px-3 py-1 text-sm font-bold text-slate-700 shadow-sm">
-                      {money(item.pricePerDay || item.asset?.pricePerDay)}
+                      {money(item.pricePerDay || item.assetId?.pricePerDay)}
                     </span>
                   </div>
                 ))

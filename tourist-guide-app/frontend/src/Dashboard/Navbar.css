@@ -1,4 +1,4 @@
-﻿.navbar {
+.navbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -19,7 +19,7 @@
 .logo-box {
   width: 40px;
   height: 40px;
-  background: #22c55e;
+  background: #0f766e;
   border-radius: 10px;
   display: flex;
   align-items: center;
@@ -108,12 +108,23 @@
 }
 
 /* PROFILE */
-.profile img {
+.profile img,
+.navbar-profile-initials {
   width: 38px;
   height: 38px;
   border-radius: 50%;
   cursor: pointer;
-  border: 2px solid #22c55e;
+  border: 2px solid #0f766e;
+}
+
+.navbar-profile-initials {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.15);
 }
 
 /* DROPDOWN */

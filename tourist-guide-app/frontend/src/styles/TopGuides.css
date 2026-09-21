@@ -1,0 +1,299 @@
+/* TopGuides.css - Cards with 20px padding, 16px radius, soft shadow, clean rating row */
+.gg-top-guides-section {
+  padding: 36px 16px 24px;
+  background-color: #ffffff;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.gg-top-guides-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.gg-top-guides-title-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gg-top-guides-title {
+  font-family: 'Poppins', 'Inter', -apple-system, sans-serif;
+  font-size: clamp(22px, 4.2vw, 28px);
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.5px;
+  margin: 0;
+}
+
+.gg-top-guides-subtitle {
+  font-size: 13.5px;
+  color: #64748b;
+  margin: 0;
+}
+
+.gg-top-guides-count {
+  background-color: #f0fdfa;
+  color: #0d9488;
+  border: 1px solid #ccfbf1;
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+/* Horizontal scrollable cards container */
+.gg-guides-cards-scroll {
+  display: flex;
+  gap: 18px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 8px 4px 20px 4px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.gg-guides-cards-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* Individual Guide Card - 20px padding, 16px rounded corners, soft shadow */
+.gg-guide-card {
+  flex: 0 0 280px;
+  max-width: 300px;
+  scroll-snap-align: start;
+  background: #ffffff;
+  border-radius: 16px; /* 16px rounded corners */
+  border: 1px solid #f1f5f9;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); /* Soft box-shadow */
+  padding: 20px; /* 20px padding */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.gg-guide-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(13, 148, 136, 0.12);
+  border-color: #e2e8f0;
+}
+
+/* Card Header (Circular Photo + Name + Verified Badge + Rating Row below) */
+.gg-guide-card-top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.gg-guide-photo-wrapper {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 2px solid #0d9488;
+  padding: 2px;
+  background-color: #ffffff;
+}
+
+.gg-guide-photo {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.gg-guide-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Name row with verified checkmark badge next to name */
+.gg-guide-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.gg-guide-name {
+  font-size: 16.5px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gg-guide-name-badge {
+  color: #0d9488;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Rating layout: star + rating + review count in one clean row below name */
+.gg-guide-rating-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.gg-guide-star {
+  color: #f59e0b;
+  font-size: 13.5px;
+  line-height: 1;
+}
+
+.gg-guide-rating-val {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.gg-guide-reviews {
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+}
+
+/* Location & Languages */
+.gg-guide-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 16px;
+}
+
+.gg-guide-meta-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: #0d9488;
+}
+
+.gg-guide-meta-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Footer / Price & Book Button */
+.gg-guide-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px dashed #e2e8f0;
+  padding-top: 14px;
+}
+
+.gg-guide-price-box {
+  display: flex;
+  flex-direction: column;
+}
+
+.gg-guide-price-label {
+  font-size: 11px;
+  color: #64748b;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+/* Increased price font size */
+.gg-guide-price-value {
+  font-size: 20px; /* Increased font size */
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.3px;
+}
+
+.gg-guide-price-value span {
+  font-size: 13px;
+  font-weight: 500;
+  color: #64748b;
+}
+
+/* Orange Book Button (min 48px height) */
+.gg-guide-book-btn {
+  background-color: #f97316;
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  height: 48px;
+  min-height: 48px;
+  padding: 0 20px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-shadow: 0 3px 10px rgba(249, 115, 22, 0.35);
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.gg-guide-book-btn:hover,
+.gg-guide-book-btn:active {
+  background-color: #ea580c;
+  transform: translateY(-1px);
+  box-shadow: 0 5px 14px rgba(249, 115, 22, 0.45);
+}
+
+/* Empty State */
+.gg-guides-empty {
+  padding: 36px 20px;
+  text-align: center;
+  background-color: #f8fafc;
+  border-radius: 16px;
+  border: 1px dashed #cbd5e1;
+}
+
+.gg-guides-empty h4 {
+  margin: 0 0 6px;
+  font-size: 16px;
+  color: #0f172a;
+}
+
+.gg-guides-empty p {
+  margin: 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+@media (max-width: 480px) {
+  .gg-top-guides-section {
+    padding: 28px 12px 20px;
+  }
+
+  .gg-guide-card {
+    flex: 0 0 260px;
+    padding: 18px 16px;
+  }
+
+  .gg-guide-photo-wrapper {
+    width: 58px;
+    height: 58px;
+  }
+}

@@ -10,7 +10,10 @@ const {
     getBookingDetails,
     getGuideAvailability,
     blockGuideAvailability,
-    deleteGuideAvailability
+    deleteGuideAvailability,
+    estimateAddon,
+    createAddonOrder,
+    verifyAddonPayment
 } = require('../controller/bookingController');
 const { isAuthenticated, authorizeRoles } = require('../middlewares/auth');
 
@@ -20,6 +23,11 @@ const router = express.Router();
 router.post('/create', isAuthenticated, authorizeRoles('tourist'), createBooking);
 router.get('/my-bookings', isAuthenticated, authorizeRoles('tourist'), getMyBookings);
 router.put('/cancel/:bookingId', isAuthenticated, authorizeRoles('tourist'), cancelBooking);
+
+// Add-on rental items routes
+router.post('/:bookingId/addon/estimate', isAuthenticated, authorizeRoles('tourist'), estimateAddon);
+router.post('/:bookingId/addon/create-order', isAuthenticated, authorizeRoles('tourist'), createAddonOrder);
+router.post('/:bookingId/addon/verify-payment', isAuthenticated, authorizeRoles('tourist'), verifyAddonPayment);
 
 // Availability calendar
 router.get('/availability/:guideId', getGuideAvailability);

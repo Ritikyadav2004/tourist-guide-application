@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSelector } from "react-redux";
-import notificationSound from "../assets/mixkit-kids-cartoon-close-bells-2256.wav";
+import { playNotificationSound } from "../utils/playSound";
 import {
   getNotifications,
   markAllNotificationsAsRead,
@@ -21,6 +21,7 @@ const getNotificationIcon = (type) => {
     booking_completed: "gift",
     new_message: "envelope",
     review_received: "star",
+    refund_initiated: "credit-card",
   };
 
   return icons[type] || "bell";
@@ -74,43 +75,53 @@ const NotificationBell = () => {
     return `gullyguide_displayed_notifications_${userId}`;
   }, [user?._id]);
 
-  const playSound = async () => {
+  const playSound = (notification) => {
     if (!audioEnabledRef.current) return;
 
-    try {
-      const audio = new Audio(notificationSound);
-      audio.volume = 0.5;
-      await audio.play();
-    } catch {
-      // Fallback: if asset file fails, try programmatic beep
-      const audioContext = audioContextRef.current;
-      if (!audioContext) return;
+    const type = notification?.type;
+    const message = (notification?.message || "").toLowerCase();
+    const title = (notification?.title || "").toLowerCase();
 
-      try {
-        if (audioContext.state === "suspended") {
-          await audioContext.resume();
-        }
-      } catch {
-        return;
-      }
+    let soundType = "success";
 
-      const startAt = audioContext.currentTime;
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-
-      oscillator.type = "sine";
-      oscillator.frequency.setValueAtTime(880, startAt);
-      oscillator.frequency.exponentialRampToValueAtTime(660, startAt + 0.18);
-
-      gainNode.gain.setValueAtTime(0.0001, startAt);
-      gainNode.gain.exponentialRampToValueAtTime(0.18, startAt + 0.02);
-      gainNode.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.28);
-
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      oscillator.start(startAt);
-      oscillator.stop(startAt + 0.3);
+    // 1. Initiated events (e.g. Refund Initiated) -> processing-back.wav
+    if (
+      type === "refund_initiated" ||
+      title.includes("initiated") ||
+      message.includes("initiated")
+    ) {
+      soundType = "processing";
     }
+    // 2. Failure/Cancellation/Error events -> error-remove.wav
+    else if (
+      type === "booking_cancelled" ||
+      title.includes("cancel") ||
+      message.includes("cancel") ||
+      title.includes("fail") ||
+      message.includes("fail") ||
+      title.includes("refund") ||
+      message.includes("refund")
+    ) {
+      soundType = "error";
+    }
+    // 3. Pending/In-progress/Partial events -> processing-back.wav
+    else if (
+      type === "booking_request" ||
+      title.includes("pending") ||
+      message.includes("pending") ||
+      title.includes("deposit") ||
+      message.includes("deposit") ||
+      title.includes("request") ||
+      message.includes("request")
+    ) {
+      soundType = "processing";
+    }
+    // 4. Success/Confirmation events -> mixkit-kids-cartoon-close-bells-2256.wav (success)
+    else {
+      soundType = "success";
+    }
+
+    playNotificationSound(soundType);
   };
 
   const pushBrowserNotification = (notification) => {
@@ -210,7 +221,7 @@ const NotificationBell = () => {
       if (mountedRef.current && hasSyncedOnceRef.current && newItems.length) {
         newItems.forEach((item, index) => {
           if (index === 0) {
-            playSound();
+            playSound(item);
             pushBrowserNotification(item);
           }
           pushToast(item);

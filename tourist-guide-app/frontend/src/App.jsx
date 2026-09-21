@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Toaster } from "react-hot-toast";
 import Register from "./pages/Register";
 import VerifyOtp from "./pages/VerifyOtp";
 import Login from "./pages/Login";
@@ -15,6 +16,7 @@ import MessagesPage from "./pages/MessagesPage";
 import ItineraryPage from "./pages/ItineraryPage";
 import SharedItineraryPage from "./pages/SharedItineraryPage";
 import PaymentPage from "./pages/payments/PaymentPage";
+import PaymentDashboard from "./pages/payments/PaymentDashboard";
 import AssetManagementPage from "./pages/AssetManagementPage";
 import CustomPackageBuilder from "./pages/CustomPackageBuilder";
 import CustomPackageSuccess from "./pages/custom-package/CustomPackageSuccess";
@@ -22,18 +24,23 @@ import GuideAssets from "./pages/guide/GuideAssets";
 import GuideRevenue from "./pages/guide/GuideRevenue";
 import PaymentSuccess from "./pages/payments/PaymentSuccess";
 import PaymentFailure from "./pages/payments/PaymentFailure";
+import BookingDetail from "./pages/BookingDetail";
+import Settings from "./pages/Settings";
 
 function App() {
   return (
     <BrowserRouter>
+      <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
       <Routes>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/gullyguide" element={<Dashboard />} />
         <Route path="/register" element={<Register />} />
         <Route path="/verify" element={<VerifyOtp />} />
         <Route path="/login" element={<Login />} />
         <Route path="/forgot" element={<ForgotPassword />} />
         <Route path="/reset/:token" element={<ResetPassword />} />
         <Route path="/dashboard" element={<Dashboard />} />
+
         <Route path="/dashboard/admin" element={<AdminPanel />} />
         <Route
           path="/dashboard/guide"
@@ -46,9 +53,11 @@ function App() {
         <Route path="/state/:stateName" element={<StateDetails />} />
         <Route path="/guide/:guideId" element={<GuideProfile />} />
         <Route path="/dashboard/bookings" element={<BookingsPage />} />
+        <Route path="/dashboard/bookings/:bookingId" element={<BookingDetail />} />
         <Route path="/dashboard/messages" element={<MessagesPage />} />
         <Route path="/dashboard/itinerary" element={<ItineraryPage />} />
         <Route path="/dashboard/payment" element={<PaymentPage />} />
+        <Route path="/dashboard/payments" element={<PaymentDashboard />} />
         <Route path="/dashboard/assets" element={<AssetManagementPage />} />
         <Route path="/dashboard/custom-package" element={<CustomPackageBuilder />} />
         <Route path="/custom-package" element={<CustomPackageBuilder />} />
@@ -65,6 +74,7 @@ function App() {
             <BookingsPage />
           }
         />
+        <Route path="/settings" element={<Settings />} />
       </Routes>
     </BrowserRouter>
   );

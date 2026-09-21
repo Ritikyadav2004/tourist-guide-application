@@ -38,7 +38,7 @@ const refundSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['created', 'processed', 'failed', 'refunded'],
+    enum: ['created', 'processed', 'failed', 'refunded', 'pending', 'processing', 'completed', 'not_applicable'],
     default: 'created',
   },
   reason: {

@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSelector } from "react-redux";
+import AnimatedCounter from "../components/AnimatedCounter";
 import PostCard from "./myProfiles/PostCard";
 import { getPosts } from "../services/api";
 
@@ -82,7 +84,17 @@ const RoundedPagination = ({ currentPage, totalPages, onPageChange, disabled }) 
   );
 };
 
-const UsersPost = () => {
+const isTestData = (post) => {
+  const testKeywords = ["testing value", "hkejrkere", "sample", "test string"];
+  const title = (post?.title || "").toLowerCase();
+  const body = (post?.body || post?.description || "").toLowerCase();
+  
+  return testKeywords.some(keyword => title.includes(keyword) || body.includes(keyword));
+};
+
+const UsersPost = ({ user: propUser }) => {
+  const reduxUser = useSelector((state) => state.auth.user);
+  const user = propUser || reduxUser;
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -101,13 +113,14 @@ const UsersPost = () => {
     try {
       const res = await getPosts(nextPage, PAGE_SIZE);
       const incoming = Array.isArray(res?.posts) ? res.posts : [];
+      const cleanPosts = incoming.filter(post => !isTestData(post));
 
-      setPosts(incoming);
+      setPosts(cleanPosts);
       setPagination({
         currentPage: Number(res?.currentPage) || nextPage,
         totalPages: Math.max(1, Number(res?.totalPages) || 1),
-        totalPosts: Number(res?.totalPosts) || incoming.length,
-        count: Number(res?.count) || incoming.length,
+        totalPosts: Math.max(0, (Number(res?.totalPosts) || incoming.length) - (incoming.length - cleanPosts.length)),
+        count: cleanPosts.length,
       });
     } catch (err) {
       console.error(err);
@@ -136,10 +149,10 @@ const UsersPost = () => {
       <div className="postsHeader">
         <div>
           <p className="posts-eyebrow">Explore stories</p>
-          <h2>Community Posts</h2>
+          <h2 className="section-title">Community Posts</h2>
         </div>
         <span className="posts-count">
-          {pagination.totalPosts} {pagination.totalPosts === 1 ? "post" : "posts"}
+          <AnimatedCounter end={pagination.totalPosts} /> {pagination.totalPosts === 1 ? "post" : "posts"}
         </span>
       </div>
 
@@ -149,6 +162,7 @@ const UsersPost = () => {
             key={post._id}
             post={post}
             refreshPosts={() => loadPosts(page)}
+            currentUser={user}
             showMenu={false}
           />
         ))}

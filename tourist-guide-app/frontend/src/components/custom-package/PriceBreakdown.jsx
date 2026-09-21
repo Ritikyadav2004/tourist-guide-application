@@ -3,40 +3,41 @@ import { motion } from "framer-motion";
 const money = (value) => `Rs. ${Number(value || 0).toLocaleString("en-IN")}`;
 
 const PriceBreakdown = ({ estimate, liveTotals }) => {
+  const isEstimate = Boolean(estimate);
   const source = estimate || liveTotals || {};
-  const discount = source.discount ?? source.discountAmount ?? source.groupDiscountAmount ?? 0;
-  const total = source.totalEstimate ?? source.total ?? 0;
+  const basePriceTotal = isEstimate ? source.baseTotal : source.basePrice;
+  const assetTotal = source.assetTotal || 0;
+  const discountAmount = isEstimate ? source.baseTotal - source.discountedBase : source.discount || 0;
+  const grandTotal = isEstimate ? source.totalEstimate : source.total;
 
   return (
     <motion.div
-      key={total}
+      key={grandTotal}
       initial={{ scale: 0.98 }}
-      animate={{ scale: [1, 1.02, 1] }}
+      animate={{ scale: [1, 1.015, 1] }}
       transition={{ duration: 0.35 }}
-      className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100"
+      className="price-breakdown-card"
     >
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-base font-bold text-slate-900">Price breakdown</h3>
-        {estimate ? <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-700">Estimated</span> : null}
+      <div className="price-breakdown-header">
+        <h3>Price breakdown</h3>
+        {isEstimate ? <span>Estimated</span> : null}
       </div>
-      <div className="space-y-3 text-sm">
-        <div className="flex justify-between text-slate-600">
+      <div className="price-breakdown-list">
+        <div className="price-row">
           <span>Base guide fee</span>
-          <strong className="text-slate-900">{money(source.basePrice)}</strong>
+          <strong>{money(basePriceTotal)}</strong>
         </div>
-        <div className="flex justify-between text-slate-600">
+        <div className="price-row">
           <span>Assets total</span>
-          <strong className="text-slate-900">{money(source.assetTotal)}</strong>
+          <strong>{money(assetTotal)}</strong>
         </div>
-        <div className="flex justify-between text-green-700">
+        <div className="price-row discount">
           <span>Group discount</span>
-          <strong>-{money(discount)}</strong>
+          <strong>-{money(discountAmount)}</strong>
         </div>
-        <div className="border-t border-slate-200 pt-3">
-          <div className="flex items-center justify-between">
-            <span className="font-bold text-slate-900">Grand total</span>
-            <strong className="text-2xl font-black text-slate-900">{money(total)}</strong>
-          </div>
+        <div className="price-row grand">
+          <span>Grand total</span>
+          <strong>{money(grandTotal)}</strong>
         </div>
       </div>
     </motion.div>

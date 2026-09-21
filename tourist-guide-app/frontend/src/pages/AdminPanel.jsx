@@ -364,6 +364,7 @@ import {
   LineChart, Line, PieChart, Pie, Cell, BarChart, Bar,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend
 } from "recharts";
+import toast from "react-hot-toast";
 import DashboardLayout from "../Dashboard/DashboardLayout";
 import { loadUser } from "../action/authActions";
 import {
@@ -375,6 +376,7 @@ import {
   updateUserBlockStatus,
 } from "../services/api";
 import "./AdminPanel.css";
+import { playNotificationSound } from "../utils/playSound";
 
 // Colors for the charts
 const CHART_COLORS = {
@@ -420,6 +422,24 @@ export default function AdminPanel() {
   const [message, setMessage] = useState("");
   const [busyId, setBusyId] = useState("");
   const [deletingPostId, setDeletingPostId] = useState("");
+
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmModalConfig, setConfirmModalConfig] = useState({
+    title: "",
+    message: "",
+    onConfirm: () => {},
+  });
+
+  const triggerConfirmModal = (title, message, onConfirm) => {
+    setConfirmModalConfig({ title, message, onConfirm });
+    setShowConfirmModal(true);
+  };
+
+  const handleCloseConfirmModal = () => {
+    setShowConfirmModal(false);
+  };
+
+
 
   // --- NEW: Search state for user table ---
   const [userSearchTerm, setUserSearchTerm] = useState("");
@@ -509,28 +529,66 @@ export default function AdminPanel() {
     if (isAdmin) loadAdminData();
   }, [isAdmin]);
 
-  const handleDeletePost = async (postId) => {
+  const handleDeletePost = (postId) => {
     if (!postId || !isAdmin) return;
-    const confirmed = window.confirm("Delete this post from the platform?");
-    if (!confirmed) return;
 
-    setDeletingPostId(postId);
-    setError("");
-    setMessage("");
+    triggerConfirmModal(
+      "Confirm Post Deletion",
+      "Are you sure you want to delete this post from the platform? This action cannot be undone.",
+      async () => {
+        setDeletingPostId(postId);
+        setError("");
+        setMessage("");
 
-    try {
-      const response = await deletePost(postId);
-      if (response?.success || response?.message) {
-        setPosts((current) => current.filter((post) => post._id !== postId));
-        setMessage(response?.message || "Post deleted.");
-      } else {
-        setError(response?.message || "Unable to delete post.");
+        try {
+          const response = await deletePost(postId);
+          if (response?.success || response?.message) {
+            setPosts((current) => current.filter((post) => post._id !== postId));
+            playNotificationSound("success");
+            toast.success("Post deleted successfully!", {
+              duration: 3000,
+              style: {
+                border: "1.5px solid #10b981",
+                padding: '16px',
+                color: '#0f172a',
+                fontWeight: 700,
+              },
+              iconTheme: {
+                primary: '#10b981',
+                secondary: '#fff',
+              },
+            });
+            setMessage(response?.message || "Post deleted.");
+          } else {
+            playNotificationSound("error");
+            toast.error("Failed to delete post. Please try again.", {
+              duration: 3000,
+              style: {
+                border: "1.5px solid #ef4444",
+                padding: '16px',
+                color: '#b91c1c',
+                fontWeight: 700,
+              },
+            });
+            setError(response?.message || "Unable to delete post.");
+          }
+        } catch (requestError) {
+          playNotificationSound("error");
+          toast.error("Failed to delete post. Please try again.", {
+            duration: 3000,
+            style: {
+              border: "1.5px solid #ef4444",
+              padding: '16px',
+              color: '#b91c1c',
+              fontWeight: 700,
+            },
+          });
+          setError(requestError?.message || "Unable to delete post.");
+        } finally {
+          setDeletingPostId("");
+        }
       }
-    } catch (requestError) {
-      setError(requestError?.message || "Unable to delete post.");
-    } finally {
-      setDeletingPostId("");
-    }
+    );
   };
 
   const handleToggleBlock = async (targetUser) => {
@@ -907,6 +965,23 @@ export default function AdminPanel() {
           </>
         ) : null}
       </section>
+
+      {/* Confirmation Modal */}
+      {showConfirmModal && (
+        <div className="p-modal-backdrop" onClick={handleCloseConfirmModal}>
+          <div className="p-confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <h2>{confirmModalConfig.title}</h2>
+            <p>{confirmModalConfig.message}</p>
+            <div className="p-modal-buttons">
+              <button className="btn-modal-cancel" onClick={handleCloseConfirmModal}>Cancel</button>
+              <button className="btn-modal-confirm" onClick={() => {
+                confirmModalConfig.onConfirm();
+                handleCloseConfirmModal();
+              }}>Confirm</button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

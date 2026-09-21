@@ -2,7 +2,8 @@ import React, { useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import DashboardLayout from "../../Dashboard/DashboardLayout";
-import { clearPaymentState } from "../../action/paymentActions";
+import { clearPaymentState } from "../../slices/paymentSlice";
+import { playNotificationSound } from "../../utils/playSound";
 import "./PaymentFailure.css";
 
 const PaymentFailure = () => {
@@ -12,6 +13,9 @@ const PaymentFailure = () => {
   const error = searchParams.get("error");
 
   useEffect(() => {
+    // Play error sound on failure page load
+    playNotificationSound("error");
+
     return () => {
       dispatch(clearPaymentState());
     };

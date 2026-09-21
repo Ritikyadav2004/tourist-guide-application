@@ -1,22 +1,25 @@
 import { useRef, useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux";
+import { loadUser } from "../../action/authActions";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCalendarCheck, faCommentDots, faTrashAlt, faCheckCircle, faExclamationCircle } from "@fortawesome/free-solid-svg-icons";
+import { faCalendarCheck, faTrashAlt, faCheckCircle, faExclamationCircle } from "@fortawesome/free-solid-svg-icons";
+import { FaHeart, FaRegHeart, FaBookmark, FaRegBookmark, FaRegComment } from "react-icons/fa";
+import { toast as hotToast } from "react-hot-toast";
+import { playNotificationSound } from "../../utils/playSound";
 
 import {
-  addPostToItinerary,
-  createItinerary,
   updatePost,
   deletePost,
   likePost,
   dislikePost,
   commentPost,
   getMe,
-  getMyItineraries,
   deleteComment,
   createBooking,
-  getGuideAvailability,
+  savePost,
+  unsavePost,
 } from "../../services/api";
 
 import "./PostCard.css";
@@ -34,8 +37,9 @@ const dateInRange = (dateValue, range) => {
   return date >= new Date(start) && date <= new Date(end);
 };
 
-const PostCard = ({ post, refreshPosts, currentUser, showMenu = false }) => {
+const PostCard = ({ post, refreshPosts, currentUser, showMenu = false, onUnsave }) => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [editValue, setEditValue] = useState("");
@@ -46,35 +50,27 @@ const PostCard = ({ post, refreshPosts, currentUser, showMenu = false }) => {
   const [comments, setComments] = useState(post.comments || []);
   const [me, setMe] = useState(currentUser || null);
   const [liked, setLiked] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
   const [showCommentBox, setShowCommentBox] = useState(false);
   const [commentText, setCommentText] = useState("");
-  const [showBookingForm, setShowBookingForm] = useState(false);
-  const [bookingSubmitting, setBookingSubmitting] = useState(false);
-  const [bookingMessage, setBookingMessage] = useState("");
-  const [bookingError, setBookingError] = useState("");
-  const [availability, setAvailability] = useState({ blockedRanges: [], bookings: [] });
+
   const [toast, setToast] = useState(null);
-  const [bookingForm, setBookingForm] = useState({
-    startDate: "",
-    endDate: "",
-    numberOfPeople: 1,
-    specialRequests: "",
+
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmModalConfig, setConfirmModalConfig] = useState({
+    title: "",
+    message: "",
+    onConfirm: () => {},
   });
-  const [showItineraryForm, setShowItineraryForm] = useState(false);
-  const [itineraries, setItineraries] = useState([]);
-  const [itineraryLoading, setItineraryLoading] = useState(false);
-  const [itinerarySubmitting, setItinerarySubmitting] = useState(false);
-  const [itineraryMessage, setItineraryMessage] = useState("");
-  const [itineraryError, setItineraryError] = useState("");
-  const [itineraryForm, setItineraryForm] = useState({
-    itineraryId: "",
-    day: 1,
-    time: "10:00 AM",
-    notes: "",
-    newTitle: "My Trip Plan",
-    newStartDate: new Date().toISOString().slice(0, 10),
-    newEndDate: new Date().toISOString().slice(0, 10),
-  });
+
+  const triggerConfirmModal = (title, message, onConfirm) => {
+    setConfirmModalConfig({ title, message, onConfirm });
+    setShowConfirmModal(true);
+  };
+
+  const handleCloseConfirmModal = () => {
+    setShowConfirmModal(false);
+  };
 
   const menuRef = useRef();
 
@@ -99,16 +95,6 @@ const PostCard = ({ post, refreshPosts, currentUser, showMenu = false }) => {
   const token = localStorage.getItem("token");
   const pricePerPerson = Number(post?.price);
   const hasBookablePrice = Number.isFinite(pricePerPerson) && pricePerPerson >= 0;
-  const bookedDayCount = useMemo(() => {
-    if (!bookingForm.startDate || !bookingForm.endDate) return 1;
-    const start = new Date(`${bookingForm.startDate}T00:00:00.000Z`);
-    const end = new Date(`${bookingForm.endDate}T00:00:00.000Z`);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return 1;
-    return Math.floor((end - start) / (24 * 60 * 60 * 1000)) + 1;
-  }, [bookingForm.startDate, bookingForm.endDate]);
-  const totalPrice = hasBookablePrice
-    ? pricePerPerson * Number(bookingForm.numberOfPeople || 1) * bookedDayCount
-    : null;
 
   const avatarSrc = postOwner?.avatar
     ? postOwner.avatar.startsWith("http")
@@ -129,23 +115,7 @@ const PostCard = ({ post, refreshPosts, currentUser, showMenu = false }) => {
     return "Location not provided";
   }, [post]);
 
-  const availabilityDays = useMemo(() => {
-    const firstDay = todayInputValue();
-    return Array.from({ length: 21 }, (_, index) => {
-      const value = addDaysInputValue(firstDay, index);
-      const booked = availability.bookings?.find((range) => dateInRange(value, range));
-      const blocked = availability.blockedRanges?.find((range) => dateInRange(value, range));
-      return {
-        value,
-        label: new Date(`${value}T00:00:00.000Z`).toLocaleDateString(undefined, {
-          day: "numeric",
-          month: "short",
-        }),
-        state: booked ? "booked" : blocked ? "blocked" : "available",
-        note: booked?.post?.title || blocked?.reason || "",
-      };
-    });
-  }, [availability]);
+
 
   const handleLike = async () => {
     try {
@@ -161,14 +131,25 @@ const PostCard = ({ post, refreshPosts, currentUser, showMenu = false }) => {
       setLiked(Boolean(serverLikes?.some((id) => id?.toString && id.toString() === userId?.toString())));
     } catch (err) {
       console.error("Like action failed:", err);
-      alert(err?.message || "Like failed");
+      playNotificationSound("error");
+      hotToast.error(err?.message || "Like failed", {
+        duration: 3000,
+        style: {
+          border: "1.5px solid #ef4444",
+          padding: '16px',
+          color: '#b91c1c',
+          fontWeight: 700,
+        },
+      });
     }
   };
 
   useEffect(() => {
     let mounted = true;
     const init = async () => {
-      if (!currentUser) {
+      if (currentUser) {
+        setMe(currentUser);
+      } else {
         const token = localStorage.getItem("token");
         if (!token) return;
         const res = await getMe(token);
@@ -185,6 +166,16 @@ const PostCard = ({ post, refreshPosts, currentUser, showMenu = false }) => {
       setLiked(Boolean(post.likes?.some((id) => id?.toString && id.toString() === userId.toString())));
     }
   }, [post.likes, currentUser, me]);
+
+  useEffect(() => {
+    const activeUser = currentUser || me;
+    const savedList = activeUser?.savedPosts || [];
+    const isPostSaved = savedList.some(savedId => {
+      const idStr = typeof savedId === "object" ? savedId._id : savedId;
+      return idStr?.toString() === post._id?.toString();
+    });
+    setIsSaved(isPostSaved);
+  }, [currentUser, me, post._id]);
 
   useEffect(() => {
     try {
@@ -263,21 +254,47 @@ const PostCard = ({ post, refreshPosts, currentUser, showMenu = false }) => {
     const viewerId = (currentUser && currentUser._id) || (me && me._id);
     if (!viewerId || !ownerId || ownerId.toString() !== viewerId.toString()) return;
 
-    const confirmed = window.confirm("Are you sure you want to delete this comment?");
-    if (!confirmed) return;
-
-    try {
-      const res = await deleteComment(post._id, comment._id);
-      if (res?.post?.comments) {
-        persistComments(res.post.comments);
-      } else {
-        // fallback local removal if API does not return updated list
-        const updated = comments.filter((c) => c._id !== comment._id);
-        persistComments(updated);
+    triggerConfirmModal(
+      "Confirm Comment Deletion",
+      "Are you sure you want to delete this comment?",
+      async () => {
+        try {
+          const res = await deleteComment(post._id, comment._id);
+          playNotificationSound("success");
+          hotToast.success("Comment deleted successfully!", {
+            duration: 3000,
+            style: {
+              border: "1.5px solid #10b981",
+              padding: '16px',
+              color: '#0f172a',
+              fontWeight: 700,
+            },
+            iconTheme: {
+              primary: '#10b981',
+              secondary: '#fff',
+            },
+          });
+          if (res?.post?.comments) {
+            persistComments(res.post.comments);
+          } else {
+            const updated = comments.filter((c) => c._id !== comment._id);
+            persistComments(updated);
+          }
+        } catch (err) {
+          console.error(err);
+          playNotificationSound("error");
+          hotToast.error("Failed to delete comment. Please try again.", {
+            duration: 3000,
+            style: {
+              border: "1.5px solid #ef4444",
+              padding: '16px',
+              color: '#b91c1c',
+              fontWeight: 700,
+            },
+          });
+        }
       }
-    } catch (err) {
-      console.error(err);
-    }
+    );
   };
 
   const openEdit = (type) => {
@@ -286,6 +303,8 @@ const PostCard = ({ post, refreshPosts, currentUser, showMenu = false }) => {
     if (type === "title") setEditValue(post.title || "");
     if (type === "body") setEditValue(post.body || "");
     if (type === "price") setEditValue(post.price ?? "");
+    if (type === "duration") setEditValue(post.duration || "");
+    if (type === "maxGroupSize") setEditValue(post.maxGroupSize ?? "");
   };
 
   const handleUpdate = async () => {
@@ -296,134 +315,84 @@ const PostCard = ({ post, refreshPosts, currentUser, showMenu = false }) => {
       if (editing === "body") payload.body = editValue;
       if (editing === "price") payload.price = editValue;
       if (editing === "photo") payload.photoFile = editFile;
+      if (editing === "duration") payload.duration = editValue;
+      if (editing === "maxGroupSize") payload.maxGroupSize = editValue;
 
       await updatePost(post._id, payload);
       setEditing(null);
+      playNotificationSound("success");
+      hotToast.success("Post updated successfully!", {
+        duration: 3000,
+        style: {
+          border: "1.5px solid #10b981",
+          padding: '16px',
+          color: '#0f172a',
+          fontWeight: 700,
+        },
+        iconTheme: {
+          primary: '#10b981',
+          secondary: '#fff',
+        },
+      });
       if (refreshPosts) refreshPosts();
     } catch (err) {
       console.error(err);
-      alert("Update failed");
+      playNotificationSound("error");
+      hotToast.error("Failed to update post. Please try again.", {
+        duration: 3000,
+        style: {
+          border: "1.5px solid #ef4444",
+          padding: '16px',
+          color: '#b91c1c',
+          fontWeight: 700,
+        },
+      });
     }
     setLoading(false);
   };
 
-  const handleDelete = async () => {
-    const ok = window.confirm("Delete this post?");
-    if (!ok) return;
-
-    setLoading(true);
-    try {
-      await deletePost(post._id);
-      if (refreshPosts) refreshPosts();
-    } catch (err) {
-      console.error(err);
-    }
-    setLoading(false);
-  };
-
-  const handleBookingChange = (event) => {
-    const { name, value } = event.target;
-    setBookingForm((current) => ({ ...current, [name]: value }));
-  };
-
-  const openBookingForm = async () => {
-    setBookingMessage("");
-    setBookingError("");
-
-    if (!token) {
-      navigate("/login");
-      return;
-    }
-
-    setShowBookingForm(true);
-
-    if (postOwnerId) {
-      try {
-        const from = todayInputValue();
-        const to = addDaysInputValue(from, 27);
-        const response = await getGuideAvailability(postOwnerId, { from, to });
-        setAvailability(response?.availability || { blockedRanges: [], bookings: [] });
-      } catch (err) {
-        setAvailability({ blockedRanges: [], bookings: [] });
+  const handleDelete = () => {
+    triggerConfirmModal(
+      "Confirm Post Deletion",
+      "Are you sure you want to delete this post? This action cannot be undone.",
+      async () => {
+        setLoading(true);
+        try {
+          await deletePost(post._id);
+          playNotificationSound("success");
+          hotToast.success("Post deleted successfully!", {
+            duration: 3000,
+            style: {
+              border: "1.5px solid #10b981",
+              padding: '16px',
+              color: '#0f172a',
+              fontWeight: 700,
+            },
+            iconTheme: {
+              primary: '#10b981',
+              secondary: '#fff',
+            },
+          });
+          if (refreshPosts) refreshPosts();
+        } catch (err) {
+          console.error(err);
+          playNotificationSound("error");
+          hotToast.error("Failed to delete post. Please try again.", {
+            duration: 3000,
+            style: {
+              border: "1.5px solid #ef4444",
+              padding: '16px',
+              color: '#b91c1c',
+              fontWeight: 700,
+            },
+          });
+        }
+        setLoading(false);
       }
-    }
+    );
   };
 
-  const handleBookingSubmit = async (event) => {
-    event.preventDefault();
-
-    if (!token) {
-      navigate("/login");
-      return;
-    }
-
-    if (!isTourist) {
-      setBookingError("Only tourist accounts can create bookings.");
-      setBookingMessage("");
-      return;
-    }
-
-    if (!post?._id) {
-      setBookingError("This post cannot be booked right now.");
-      setBookingMessage("");
-      return;
-    }
-
-    if (!bookingForm.startDate || !bookingForm.endDate) {
-      setBookingError("Please choose start and end dates.");
-      setBookingMessage("");
-      return;
-    }
-
-    if (new Date(bookingForm.endDate) < new Date(bookingForm.startDate)) {
-      setBookingError("End date cannot be before start date.");
-      setBookingMessage("");
-      return;
-    }
-
-    const normalizedPeople = Number(bookingForm.numberOfPeople);
-    if (!Number.isFinite(normalizedPeople) || normalizedPeople < 1 || normalizedPeople > 20) {
-      setBookingError("Number of people must be between 1 and 20.");
-      setBookingMessage("");
-      return;
-    }
-
-    if (!hasBookablePrice) {
-      setBookingError("This post needs a valid price before tourists can book it.");
-      setBookingMessage("");
-      return;
-    }
-
-    setBookingSubmitting(true);
-    setBookingError("");
-    setBookingMessage("");
-
-    try {
-      const response = await createBooking({
-        postId: post._id,
-        startDate: bookingForm.startDate,
-        endDate: bookingForm.endDate,
-        numberOfPeople: normalizedPeople,
-        specialRequests: bookingForm.specialRequests,
-      });
-
-      showToast("success", response?.message || "Booking request sent successfully!");
-      window.dispatchEvent(new CustomEvent("notification:sync"));
-      setBookingForm({
-        startDate: "",
-        endDate: "",
-        numberOfPeople: 1,
-        specialRequests: "",
-      });
-      setShowBookingForm(false);
-    } catch (err) {
-      showToast("error", err?.message || "Unable to send booking request.");
-    } finally {
-      setBookingSubmitting(false);
-    }
-  };
-
-  const openCustomPackageBuilder = () => {
+  const openBookingForm = () => {
     if (!token) {
       navigate("/login");
       return;
@@ -431,96 +400,61 @@ const PostCard = ({ post, refreshPosts, currentUser, showMenu = false }) => {
     navigate(`/custom-package?guideId=${postOwnerId || ""}&postId=${post._id}`);
   };
 
-  const loadItineraryOptions = async () => {
-    setItineraryLoading(true);
-    setItineraryError("");
-
+  const handleSaveToggle = async () => {
+    if (!token) {
+      navigate("/login");
+      return;
+    }
     try {
-      const data = await getMyItineraries();
-      const nextItineraries = Array.isArray(data?.itineraries) ? data.itineraries : [];
-      setItineraries(nextItineraries);
-      setItineraryForm((current) => ({
-        ...current,
-        itineraryId: current.itineraryId || nextItineraries[0]?._id || "new",
-      }));
+      if (isSaved) {
+        const res = await unsavePost(post._id);
+        if (res && res.success) {
+          setIsSaved(false);
+          hotToast.success("Removed from itinerary", {
+            duration: 3000,
+            style: {
+              border: "1.5px solid #10b981",
+              padding: '16px',
+              color: '#0f172a',
+              fontWeight: 700,
+            },
+          });
+          dispatch(loadUser());
+          if (onUnsave) {
+            onUnsave(post._id);
+          }
+        } else {
+          throw new Error(res?.error || res?.message || "Failed to unsave post");
+        }
+      } else {
+        const res = await savePost(post._id);
+        if (res && res.success) {
+          setIsSaved(true);
+          hotToast.success("Saved to your itinerary", {
+            duration: 3000,
+            style: {
+              border: "1.5px solid #10b981",
+              padding: '16px',
+              color: '#0f172a',
+              fontWeight: 700,
+            },
+          });
+          dispatch(loadUser());
+        } else {
+          throw new Error(res?.error || res?.message || "Failed to save post");
+        }
+      }
     } catch (err) {
-      setItineraryError(err?.message || "Unable to load your itineraries.");
-    } finally {
-      setItineraryLoading(false);
-    }
-  };
-
-  const openItineraryForm = async () => {
-    setItineraryMessage("");
-    setItineraryError("");
-
-    if (!token) {
-      navigate("/login");
-      return;
-    }
-
-    if (!isTourist) {
-      setItineraryError("Only tourist accounts can add posts to itineraries.");
-      setShowItineraryForm(true);
-      return;
-    }
-
-    setShowItineraryForm(true);
-    await loadItineraryOptions();
-  };
-
-  const handleItineraryChange = (event) => {
-    const { name, value } = event.target;
-    setItineraryForm((current) => ({ ...current, [name]: value }));
-  };
-
-  const handleItinerarySubmit = async (event) => {
-    event.preventDefault();
-
-    if (!token) {
-      navigate("/login");
-      return;
-    }
-
-    if (!isTourist) {
-      setItineraryError("Only tourist accounts can add posts to itineraries.");
-      return;
-    }
-
-    setItinerarySubmitting(true);
-    setItineraryMessage("");
-    setItineraryError("");
-
-    try {
-      let targetId = itineraryForm.itineraryId;
-
-      if (!targetId || targetId === "new") {
-        const created = await createItinerary({
-          title: itineraryForm.newTitle || "My Trip Plan",
-          destination: post.location && typeof post.location === "object" ? post.location : {},
-          startDate: itineraryForm.newStartDate,
-          endDate: itineraryForm.newEndDate,
-        });
-        targetId = created?.itinerary?._id;
-      }
-
-      if (!targetId) {
-        throw new Error("Please choose or create an itinerary.");
-      }
-
-      const response = await addPostToItinerary(targetId, {
-        postId: post._id,
-        day: Number(itineraryForm.day || 1),
-        time: itineraryForm.time,
-        notes: itineraryForm.notes,
+      console.error("Save toggle failed:", err);
+      hotToast.error("Failed to save post. Please try again.", {
+        duration: 3000,
+        style: {
+          border: "1.5px solid #ef4444",
+          padding: '16px',
+          color: '#b91c1c',
+          fontWeight: 700,
+        },
       });
-
-      setItineraryMessage(response?.message || "Added to itinerary.");
-      await loadItineraryOptions();
-    } catch (err) {
-      setItineraryError(err?.message || "Unable to add post to itinerary.");
-    } finally {
-      setItinerarySubmitting(false);
     }
   };
 
@@ -561,6 +495,8 @@ const PostCard = ({ post, refreshPosts, currentUser, showMenu = false }) => {
                 <button onClick={() => openEdit("title")}>Edit Title</button>
                 <button onClick={() => openEdit("body")}>Edit Description</button>
                 <button onClick={() => openEdit("price")}>Edit Price</button>
+                <button onClick={() => openEdit("duration")}>Edit Duration</button>
+                <button onClick={() => openEdit("maxGroupSize")}>Edit Max Group Size</button>
                 <button onClick={() => openEdit("photo")}>Change Image</button>
                 <button className="delete-btn" onClick={handleDelete} disabled={loading}>
                   Delete Post
@@ -584,8 +520,12 @@ const PostCard = ({ post, refreshPosts, currentUser, showMenu = false }) => {
         <p>{post.body || post.description}</p>
       </div>
 
-      <div className="post-description">
-        <p>{post.price !== undefined ? `Price: Rs. ${post.price}` : "Price not provided"}</p>
+      <div className="post-price-row">
+        {hasBookablePrice ? (
+          <span className="post-price-badge">Rs. {Number(post.price).toLocaleString("en-IN")} / person</span>
+        ) : (
+          <span className="post-price-badge fallback">Contact guide for pricing</span>
+        )}
       </div>
 
       {/* TOAST NOTIFICATION */}
@@ -602,302 +542,56 @@ const PostCard = ({ post, refreshPosts, currentUser, showMenu = false }) => {
 
       {/* ACTION BUTTONS */}
       <div className="post-actions">
-        <button
-          className={`like-btn ${liked ? "is-liked" : ""}`}
-          onClick={handleLike}
-          aria-pressed={liked}
-        >
-          <span className="like-label">{liked ? "Unlike" : "Like"}</span>
-          <span className="like-count">{likes}</span>
-        </button>
+        <div className="post-actions__engagement">
+          <button
+            className={`like-btn ${liked ? "is-liked" : ""}`}
+            onClick={handleLike}
+            aria-pressed={liked}
+            title={liked ? "Unlike" : "Like"}
+          >
+            {liked ? (
+              <FaHeart className="engagement-icon heart-solid" />
+            ) : (
+              <FaRegHeart className="engagement-icon heart-outline" />
+            )}
+            <span className="count">{likes}</span>
+          </button>
 
-        <button
-          className="comment-btn"
-          onClick={() => setShowCommentBox(!showCommentBox)}
-        >
-          <FontAwesomeIcon icon={faCommentDots} />
-          <span>{comments.length}</span>
-        </button>
+          <button
+            className="comment-btn"
+            onClick={() => setShowCommentBox(!showCommentBox)}
+            title="Comments"
+          >
+            <FaRegComment className="engagement-icon comment-outline" />
+            <span className="count">{comments.length}</span>
+          </button>
 
-        <button
-          className="book-btn"
-          type="button"
-          onClick={openBookingForm}
-          disabled={!hasBookablePrice}
-          title={hasBookablePrice ? "Book this guide post" : "Price required before booking"}
-        >
-          <FontAwesomeIcon icon={faCalendarCheck} />
-          <span>Book</span>
-        </button>
-
-        <button
-          className="itinerary-btn"
-          type="button"
-          onClick={openItineraryForm}
-          title="Add this post to an itinerary"
-        >
-          <i className="fa fa-map"></i>
-          <span>Itinerary</span>
-        </button>
-      </div>
-
-      {itineraryMessage ? (
-        <div className="post-booking-message is-success">
-          <span>{itineraryMessage}</span>
-          <Link to="/dashboard/itinerary">Open itinerary</Link>
+          <button
+            className={`save-btn-icon ${isSaved ? "is-saved" : ""}`}
+            onClick={handleSaveToggle}
+            title={isSaved ? "Remove from itinerary" : "Save to itinerary"}
+          >
+            {isSaved ? (
+              <FaBookmark className="engagement-icon bookmark-solid" />
+            ) : (
+              <FaRegBookmark className="engagement-icon bookmark-outline" />
+            )}
+          </button>
         </div>
-      ) : null}
 
-      {itineraryError && !showItineraryForm ? (
-        <div className="post-booking-message is-error">{itineraryError}</div>
-      ) : null}
-
-      {showBookingForm && createPortal(
-        <div className="booking-modal" role="dialog" aria-label="Book guide">
-          <div className="booking-panel">
-            <div className="booking-panel__header">
-              <div>
-                <h4>Book this guide</h4>
-                <p>{post.title || ownerName}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                {isTourist ? (
-                  <button
-                    type="button"
-                    className="rounded-full bg-[#22c55e] px-4 py-2 text-sm font-bold text-white shadow-md transition hover:scale-105"
-                    onClick={openCustomPackageBuilder}
-                  >
-                    Build Custom Package
-                  </button>
-                ) : null}
-                <button type="button" onClick={() => setShowBookingForm(false)}>
-                  Close
-                </button>
-              </div>
-            </div>
-
-            <form className="post-booking-form" onSubmit={handleBookingSubmit}>
-              {!isTourist ? (
-                <div className="post-booking-message is-error">
-                  Only tourist accounts can create bookings.
-                </div>
-              ) : null}
-
-              <div className="post-availability-grid" aria-label="Guide availability calendar">
-                {availabilityDays.map((day) => (
-                  <button
-                    key={day.value}
-                    type="button"
-                    className={`post-availability-day is-${day.state}`}
-                    disabled={day.state !== "available"}
-                    title={day.note || day.state}
-                    onClick={() =>
-                      setBookingForm((current) => ({
-                        ...current,
-                        startDate: day.value,
-                        endDate: current.endDate && current.endDate >= day.value ? current.endDate : day.value,
-                      }))
-                    }
-                  >
-                    <span>{day.label}</span>
-                    <small>{day.state}</small>
-                  </button>
-                ))}
-              </div>
-
-              <div className="booking-form-grid">
-                <label>
-                  Start date
-                  <input
-                    type="date"
-                    min={todayInputValue()}
-                    name="startDate"
-                    value={bookingForm.startDate}
-                    onChange={handleBookingChange}
-                    required
-                  />
-                </label>
-
-                <label>
-                  End date
-                  <input
-                    type="date"
-                    min={bookingForm.startDate || todayInputValue()}
-                    name="endDate"
-                    value={bookingForm.endDate}
-                    onChange={handleBookingChange}
-                    required
-                  />
-                </label>
-              </div>
-
-              <label>
-                People
-                <input
-                  type="number"
-                  min="1"
-                  max="20"
-                  name="numberOfPeople"
-                  value={bookingForm.numberOfPeople}
-                  onChange={handleBookingChange}
-                  required
-                />
-              </label>
-
-              <label>
-                Special requests
-                <textarea
-                  name="specialRequests"
-                  rows="4"
-                  maxLength="500"
-                  value={bookingForm.specialRequests}
-                  onChange={handleBookingChange}
-                  placeholder="Pickup point, language, food, or timing notes"
-                />
-              </label>
-
-              <div className="post-booking-summary">
-                <span>Estimated total</span>
-                <strong>{totalPrice !== null ? `Rs. ${totalPrice}` : "Unavailable"}</strong>
-                <small>{bookedDayCount} day{bookedDayCount === 1 ? "" : "s"}</small>
-              </div>
-
-              <button
-                type="submit"
-                className="submit-booking-btn"
-                disabled={bookingSubmitting || !isTourist || !hasBookablePrice}
-              >
-                {bookingSubmitting ? "Sending..." : "Send booking request"}
-              </button>
-            </form>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {showItineraryForm && createPortal(
-        <div className="booking-modal" role="dialog" aria-label="Add post to itinerary">
-          <div className="booking-panel">
-            <div className="booking-panel__header">
-              <div>
-                <h4>Add to itinerary</h4>
-                <p>{post.title || ownerName}</p>
-              </div>
-              <button type="button" onClick={() => setShowItineraryForm(false)}>
-                Close
-              </button>
-            </div>
-
-            <form className="post-booking-form" onSubmit={handleItinerarySubmit}>
-              {!isTourist ? (
-                <div className="post-booking-message is-error">
-                  Only tourist accounts can add posts to itineraries.
-                </div>
-              ) : null}
-
-              {itineraryLoading ? <p className="muted">Loading itineraries...</p> : null}
-              {itineraryError ? <div className="post-booking-message is-error">{itineraryError}</div> : null}
-              {itineraryMessage ? <div className="post-booking-message is-success">{itineraryMessage}</div> : null}
-
-              <label>
-                Itinerary
-                <select
-                  name="itineraryId"
-                  value={itineraryForm.itineraryId}
-                  onChange={handleItineraryChange}
-                >
-                  {itineraries.map((itinerary) => (
-                    <option key={itinerary._id} value={itinerary._id}>
-                      {itinerary.title}
-                    </option>
-                  ))}
-                  <option value="new">Create new itinerary</option>
-                </select>
-              </label>
-
-              {itineraryForm.itineraryId === "new" ? (
-                <>
-                  <label>
-                    New itinerary title
-                    <input
-                      name="newTitle"
-                      value={itineraryForm.newTitle}
-                      onChange={handleItineraryChange}
-                      required
-                    />
-                  </label>
-                  <div className="booking-form-grid">
-                    <label>
-                      Start date
-                      <input
-                        type="date"
-                        name="newStartDate"
-                        value={itineraryForm.newStartDate}
-                        onChange={handleItineraryChange}
-                        required
-                      />
-                    </label>
-                    <label>
-                      End date
-                      <input
-                        type="date"
-                        name="newEndDate"
-                        value={itineraryForm.newEndDate}
-                        onChange={handleItineraryChange}
-                        required
-                      />
-                    </label>
-                  </div>
-                </>
-              ) : null}
-
-              <div className="booking-form-grid">
-                <label>
-                  Day
-                  <input
-                    type="number"
-                    min="1"
-                    name="day"
-                    value={itineraryForm.day}
-                    onChange={handleItineraryChange}
-                    required
-                  />
-                </label>
-                <label>
-                  Time
-                  <input
-                    name="time"
-                    value={itineraryForm.time}
-                    onChange={handleItineraryChange}
-                    required
-                  />
-                </label>
-              </div>
-
-              <label>
-                Notes
-                <textarea
-                  name="notes"
-                  rows="3"
-                  maxLength="500"
-                  value={itineraryForm.notes}
-                  onChange={handleItineraryChange}
-                  placeholder="Why this spot belongs in the plan"
-                />
-              </label>
-
-              <button
-                type="submit"
-                className="submit-booking-btn"
-                disabled={itinerarySubmitting || itineraryLoading || !isTourist}
-              >
-                {itinerarySubmitting ? "Adding..." : "Add to itinerary"}
-              </button>
-            </form>
-          </div>
-        </div>,
-        document.body
-      )}
+        <div className="post-actions__primary">
+          <button
+            className="book-btn"
+            type="button"
+            onClick={openBookingForm}
+            disabled={!hasBookablePrice}
+            title={hasBookablePrice ? "Book this guide post" : "Price required before booking"}
+          >
+            <FontAwesomeIcon icon={faCalendarCheck} />
+            <span>Book</span>
+          </button>
+        </div>
+      </div>
 
       {/* COMMENTS PANEL */}
       {showCommentBox && (
@@ -967,10 +661,14 @@ const PostCard = ({ post, refreshPosts, currentUser, showMenu = false }) => {
                 ? "Edit Description"
                 : editing === "price"
                 ? "Edit Price"
+                : editing === "duration"
+                ? "Edit Duration"
+                : editing === "maxGroupSize"
+                ? "Edit Max Group Size"
                 : "Change Image"}
             </h4>
 
-            {(editing === "title" || editing === "body" || editing === "price") && (
+            {(editing === "title" || editing === "body" || editing === "price" || editing === "duration" || editing === "maxGroupSize") && (
               editing === "title" ? (
                 <input
                   value={editValue}
@@ -981,6 +679,18 @@ const PostCard = ({ post, refreshPosts, currentUser, showMenu = false }) => {
                   type="number"
                   min="0"
                   step="any"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                />
+              ) : editing === "maxGroupSize" ? (
+                <input
+                  type="number"
+                  min="1"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                />
+              ) : editing === "duration" ? (
+                <input
                   value={editValue}
                   onChange={(e) => setEditValue(e.target.value)}
                 />
@@ -1007,6 +717,23 @@ const PostCard = ({ post, refreshPosts, currentUser, showMenu = false }) => {
               <button onClick={handleUpdate} disabled={loading} className="save-btn">
                 {loading ? "Saving..." : "Save"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {showConfirmModal && (
+        <div className="p-modal-backdrop" onClick={handleCloseConfirmModal}>
+          <div className="p-confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <h2>{confirmModalConfig.title}</h2>
+            <p>{confirmModalConfig.message}</p>
+            <div className="p-modal-buttons">
+              <button className="btn-modal-cancel" onClick={handleCloseConfirmModal}>Cancel</button>
+              <button className="btn-modal-confirm" onClick={() => {
+                confirmModalConfig.onConfirm();
+                handleCloseConfirmModal();
+              }}>Confirm</button>
             </div>
           </div>
         </div>

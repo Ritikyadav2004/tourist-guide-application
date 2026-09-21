@@ -1,0 +1,135 @@
+/* Footer.css - Clean, trust-inspiring footer */
+.gg-footer {
+  background-color: #0f172a;
+  color: #94a3b8;
+  padding: 40px 16px 90px; /* 90px bottom padding so it clears the fixed BottomNav */
+  border-top: 1px solid #1e293b;
+  width: 100%;
+}
+
+.gg-footer-container {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.gg-footer-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.gg-footer-brand {
+  max-width: 340px;
+}
+
+.gg-footer-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.gg-footer-logo span {
+  color: #0d9488;
+}
+
+.gg-footer-tagline {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #94a3b8;
+  margin: 0;
+}
+
+/* Links */
+.gg-footer-links-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 32px;
+}
+
+.gg-footer-links-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gg-footer-links-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #ffffff;
+  margin: 0 0 2px;
+}
+
+.gg-footer-link {
+  color: #94a3b8;
+  text-decoration: none;
+  font-size: 13.5px;
+  transition: color 0.15s ease;
+  cursor: pointer;
+}
+
+.gg-footer-link:hover {
+  color: #0d9488;
+}
+
+/* Social icons */
+.gg-footer-socials {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.gg-social-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: #1e293b;
+  color: #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.gg-social-btn:hover {
+  background-color: #0d9488;
+  color: #ffffff;
+  transform: translateY(-2px);
+}
+
+/* Bottom copyright */
+.gg-footer-bottom {
+  padding-top: 20px;
+  border-top: 1px solid #1e293b;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12.5px;
+  color: #64748b;
+}
+
+@media (max-width: 600px) {
+  .gg-footer {
+    padding: 32px 16px 95px;
+  }
+
+  .gg-footer-links-grid {
+    gap: 20px;
+    width: 100%;
+    justify-content: space-between;
+  }
+}

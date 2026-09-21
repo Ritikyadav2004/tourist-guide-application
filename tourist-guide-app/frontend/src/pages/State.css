@@ -24,7 +24,7 @@
 .hero-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.15) 0%, rgba(0, 0, 0, 0.55) 100%);
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.4) 0%, rgba(15, 23, 42, 0.85) 100%);
 }
 
 .hero-content {
@@ -38,12 +38,14 @@
   font-size: 44px;
   margin: 6px 0;
   letter-spacing: -0.5px;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6), 0 4px 24px rgba(0, 0, 0, 0.3);
 }
 
 .hero-sub {
   margin: 6px 0 16px;
   color: #e9ecf5;
   max-width: 520px;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
 }
 
 .eyebrow {
@@ -52,6 +54,7 @@
   font-size: 12px;
   font-weight: 700;
   color: #6ee7ff;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
 }
 
 .hero-tags {

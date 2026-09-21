@@ -1,4 +1,5 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import "./Carasol.css";
 
 const slides = [
@@ -25,6 +26,9 @@ const slides = [
 
 const Carasol = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [searchVal, setSearchVal] = useState("");
+  const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -36,6 +40,11 @@ const Carasol = () => {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    setSearchVal(params.get("search") || "");
+  }, [location.search]);
+
   const nextSlide = () => {
     setCurrentIndex(
       currentIndex === slides.length - 1 ? 0 : currentIndex + 1
@@ -46,6 +55,24 @@ const Carasol = () => {
     setCurrentIndex(
       currentIndex === 0 ? slides.length - 1 : currentIndex - 1
     );
+  };
+
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    const currentPath = location.pathname;
+    if (searchVal.trim()) {
+      navigate(`${currentPath}?search=${encodeURIComponent(searchVal.trim())}`);
+    } else {
+      navigate(currentPath);
+    }
+    
+    // Scroll to guides section
+    setTimeout(() => {
+      const guidesEl = document.getElementById("guides");
+      if (guidesEl) {
+        guidesEl.scrollIntoView({ behavior: "smooth" });
+      }
+    }, 100);
   };
 
   return (
@@ -61,9 +88,25 @@ const Carasol = () => {
 
       {/* Center Content */}
       <div className="carousel-content">
-        <span className="badge">TRENDING DESTINATION</span>
+        <div className="trending-badge-container">
+          <span className="trending-badge">TRENDING DESTINATION</span>
+        </div>
         <h1>{slides[currentIndex].title}</h1>
         <p>{slides[currentIndex].subtitle}</p>
+
+        {/* Premium search bar */}
+        <form onSubmit={handleSearchSubmit} className="hero-search-bar">
+          <div className="search-input-wrapper">
+            <span className="search-icon">🔍</span>
+            <input
+              type="text"
+              placeholder="Where do you want to go? (e.g. Goa, Himalayan)"
+              value={searchVal}
+              onChange={(e) => setSearchVal(e.target.value)}
+            />
+          </div>
+          <button type="submit">Search</button>
+        </form>
       </div>
 
       {/* Arrows */}

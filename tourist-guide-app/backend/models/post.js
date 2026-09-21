@@ -75,6 +75,14 @@ const postSchema = new Schema({
         type : ObjectId,
         ref : 'User'
     },
+    duration: {
+        type: String,
+        default: 'Flexible duration'
+    },
+    maxGroupSize: {
+        type: Number,
+        default: null
+    },
     // location: {
     //     city: String,
     //     state: String,

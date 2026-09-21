@@ -37,78 +37,61 @@ const PackageSummary = ({
       0
     );
     const basePrice = Number(guidePrice || 0) * people * days;
-    const discount = people >= 6 ? Math.round((basePrice + assetTotal) * 0.08) : 0;
-    return {
-      basePrice,
-      assetTotal,
-      discount,
-      total: Math.max(0, basePrice + assetTotal - discount),
-    };
+    let discountPercent = 0;
+    if (people >= 5 && people < 8) discountPercent = 0.1;
+    else if (people >= 8 && people < 10) discountPercent = 0.15;
+    else if (people >= 10) discountPercent = 0.2;
+    const discount = Math.round(basePrice * discountPercent);
+    return { basePrice, assetTotal, discount, total: Math.max(0, basePrice + assetTotal - discount) };
   }, [days, guidePrice, people, selectedAssets]);
 
   return (
-    <aside className="sticky top-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100 transition-all duration-300 lg:p-6">
-      <div className="mb-5 flex items-start justify-between gap-4">
+    <aside className="package-summary-panel">
+      <div className="summary-topline">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-green-600">Live cart</p>
-          <h2 className="mt-1 text-2xl font-bold text-slate-900">Package summary</h2>
+          <span><i className="fa-solid fa-cart-shopping" aria-hidden="true"></i> Live cart</span>
+          <h2>Package summary</h2>
         </div>
-        <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-bold text-white">{days} day{days === 1 ? "" : "s"}</span>
+        <strong>{days} day{days === 1 ? "" : "s"}</strong>
       </div>
 
-      <div className="mb-5 space-y-3">
+      <div className="summary-assets-list">
         {selectedAssets.length ? (
           <AnimatePresence initial={false}>
             {selectedAssets.map((asset) => (
-            <motion.div
-              key={asset.assetId}
-              initial={{ opacity: 0, x: 32 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 32 }}
-              className="rounded-2xl bg-slate-50 p-3 transition-all duration-300"
-            >
-              <div className="flex items-start justify-between gap-3">
+              <motion.div
+                key={asset.assetId}
+                initial={{ opacity: 0, x: 24 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 24 }}
+                className="summary-asset-item"
+              >
                 <div>
-                  <h3 className="font-bold text-slate-900">{asset.name}</h3>
-                  <p className="text-xs font-semibold text-slate-500">
-                    {money(asset.pricePerDay)} x {asset.quantity} x {days} days
-                  </p>
+                  <h3>{asset.name}</h3>
+                  <p>{money(asset.pricePerDay)} x {asset.quantity} x {days} days</p>
                 </div>
-                <strong className="text-sm text-slate-900">{money(asset.pricePerDay * asset.quantity * days)}</strong>
-              </div>
-            </motion.div>
+                <strong>{money(asset.pricePerDay * asset.quantity * days)}</strong>
+              </motion.div>
             ))}
           </AnimatePresence>
         ) : (
-          <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
-            Add assets to start building your package.
-          </div>
+          <div className="summary-empty">Add assets to start building your package.</div>
         )}
       </div>
 
       <PriceBreakdown estimate={estimate} liveTotals={liveTotals} />
 
       {estimate ? (
-        <div className="mt-4 rounded-2xl bg-green-50 p-4 text-sm font-semibold text-green-800">
-          Price lock expires in <span className="font-black">{formatTime(remaining)}</span>
+        <div className="price-lock-note">
+          Price lock expires in <strong>{formatTime(remaining)}</strong>
         </div>
       ) : null}
 
-      <div className="mt-5 grid gap-3">
-        <button
-          type="button"
-          className="rounded-full bg-slate-900 px-5 py-3 font-bold text-white shadow-md transition hover:scale-105 disabled:opacity-50"
-          onClick={onEstimate}
-          disabled={estimating}
-        >
+      <div className="summary-actions-row">
+        <button type="button" className="custom-outline-button" onClick={onEstimate} disabled={estimating}>
           {estimating ? "Calculating..." : "Get Estimate"}
         </button>
-        <button
-          type="button"
-          className="rounded-full bg-green-500 px-5 py-3 font-bold text-white shadow-md transition hover:scale-105 hover:bg-green-600 disabled:opacity-50"
-          onClick={onSave}
-          disabled={saving || !estimate}
-        >
+        <button type="button" className="custom-primary-button" onClick={onSave} disabled={saving || !estimate}>
           {saving ? "Locking..." : "Lock & Proceed to Payment"}
         </button>
       </div>

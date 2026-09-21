@@ -114,6 +114,7 @@ const userSchema = new mongoose.Schema({
 
   blockedAt: Date,
 
+
   otp: String,
   otpExpire: Date,
 
@@ -124,6 +125,10 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  savedPosts: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Post",
+  }],
 });
 
 // Hash password before saving

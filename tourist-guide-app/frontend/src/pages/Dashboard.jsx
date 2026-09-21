@@ -9,6 +9,7 @@ import GuiderProfiles from "../Dashboard/GuiderProfiles";
 import Services from "../Dashboard/Services";
 import Categories from "../Dashboard/Categories";
 import TopPost from "../Dashboard/UsersPost";
+import LiveActivityStrip from "../components/LiveActivityStrip";
 
 const Dashboard = () => {
   const dispatch = useDispatch();
@@ -62,6 +63,7 @@ const Dashboard = () => {
   return (
     <DashboardLayout>
       <Carasol />
+      <LiveActivityStrip />
       <Services />
       <Categories />
       <TopPost user={user} />
@@ -96,7 +98,7 @@ const Dashboard = () => {
               to="/login"
               style={{
                 textDecoration: "none",
-                background: "#22c55e",
+                background: "#0f766e",
                 color: "#ffffff",
                 padding: "10px 18px",
                 borderRadius: 999,

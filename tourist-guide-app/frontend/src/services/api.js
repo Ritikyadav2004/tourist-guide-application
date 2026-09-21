@@ -115,14 +115,14 @@ export const getGuides = async () => {
   for (const url of candidateUrls) {
     try {
       const res = await fetch(url);
+      const parsed = await parseJSON(res);
       if (res.ok) {
-        const parsed = await parseJSON(res);
         if ((parsed?.guides && parsed.guides.length) || Array.isArray(parsed)) {
           return parsed;
         }
       }
       if (url === `${AUTH_BASE_URL}/guides` || res.status !== 404) {
-        return parseJSON(res);
+        return parsed;
       }
     } catch (err) {
       console.warn("Guide fetch failed for", url, err);
@@ -178,7 +178,7 @@ const appendLocationFields = (formData, location) => {
   formData.append("location", JSON.stringify(location));
 };
 
-export const createPost = async ({ title, body, price, photoFile, location }) => {
+export const createPost = async ({ title, body, price, photoFile, location, duration, maxGroupSize }) => {
   const token = localStorage.getItem("token");
 
   const formData = new FormData();
@@ -187,6 +187,8 @@ export const createPost = async ({ title, body, price, photoFile, location }) =>
   formData.append("price", price ?? "");
   appendLocationFields(formData, location);
   if (photoFile) formData.append("photo", photoFile);
+  if (duration !== undefined && duration !== null) formData.append("duration", duration);
+  if (maxGroupSize !== undefined && maxGroupSize !== null) formData.append("maxGroupSize", maxGroupSize);
 
   const res = await fetch(`${API_BASE}/api/posts/create`, {
     method: "POST",
@@ -205,13 +207,15 @@ export const getMyPosts = async () => {
   return parseJSON(res);
 };
 
-export const updatePost = async (postId, { title, body, price, photoFile, location }) => {
+export const updatePost = async (postId, { title, body, price, photoFile, location, duration, maxGroupSize }) => {
   const token = localStorage.getItem("token");
 
   const formData = new FormData();
   if (title !== undefined) formData.append("title", title);
   if (body !== undefined) formData.append("body", body);
   if (price !== undefined) formData.append("price", price);
+  if (duration !== undefined && duration !== null) formData.append("duration", duration);
+  if (maxGroupSize !== undefined && maxGroupSize !== null) formData.append("maxGroupSize", maxGroupSize);
   appendLocationFields(formData, location);
   if (photoFile) formData.append("photo", photoFile);
 
@@ -231,6 +235,14 @@ export const deletePost = async (postId) => {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
   return parseJSON(res);
+};
+
+export const getPost = async (postId) => {
+  const token = localStorage.getItem("token");
+  const res = await fetch(`${API_BASE}/api/posts/${postId}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  return parseJSONOrThrow(res);
 };
 
 export const getNotifications = async ({ page = 1, limit = 20 } = {}) => {
@@ -317,7 +329,7 @@ export const deleteComment = async (postId, commentId) => {
   return parseJSON(res);
 };
 
-export const createBooking = async ({ postId, tourDate, startDate, endDate, numberOfPeople, specialRequests }) => {
+export const createBooking = async ({ postId, customPackageId, tourDate, startDate, endDate, numberOfPeople, specialRequests }) => {
   const token = localStorage.getItem("token");
 
   const res = await fetch(`${BOOKINGS_BASE_URL}/create`, {
@@ -328,6 +340,7 @@ export const createBooking = async ({ postId, tourDate, startDate, endDate, numb
     },
     body: JSON.stringify({
       postId,
+      customPackageId,
       tourDate,
       startDate,
       endDate,
@@ -372,15 +385,34 @@ export const cancelBooking = async (bookingId) => {
   return parseJSONOrThrow(res);
 };
 
-export const updateBookingStatus = async (bookingId, status) => {
+export const requestBookingStatusOtp = async (bookingId, status = "confirmed") => {
   const token = localStorage.getItem("token");
+  const res = await fetch(`${BOOKINGS_BASE_URL}/status/${bookingId}/otp`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...buildAuthHeaders(token),
+    },
+    body: JSON.stringify({ status }),
+  });
+  return parseJSONOrThrow(res);
+};
+
+export const updateBookingStatus = async (bookingId, status, otp, cancellationReason) => {
+  const token = localStorage.getItem("token");
+  const payload = { status };
+  if (otp !== undefined && otp !== null) payload.otp = otp;
+  if (cancellationReason !== undefined && cancellationReason !== null) {
+    payload.cancellationReason = cancellationReason;
+  }
+
   const res = await fetch(`${BOOKINGS_BASE_URL}/status/${bookingId}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
       ...buildAuthHeaders(token),
     },
-    body: JSON.stringify({ status }),
+    body: JSON.stringify(payload),
   });
   return parseJSONOrThrow(res);
 };
@@ -881,7 +913,6 @@ export const deleteTemplate = async (templateId) => {
 };
 
 // GUIDE EARNINGS
-// GUIDE EARNINGS - FIXED (uses fetch, not 'api.get')
 export const getGuideEarnings = async () => {
   const token = localStorage.getItem("token");
   const res = await fetch(`${API_BASE}/api/guide/earnings`, {
@@ -890,7 +921,6 @@ export const getGuideEarnings = async () => {
   return parseJSONOrThrow(res);
 };
 
-// NEW: Get detailed per-booking earnings (for the "Earnings Breakdown" page)
 export const getGuideBookingEarnings = async (page = 1, limit = 20) => {
   const token = localStorage.getItem("token");
   const params = new URLSearchParams({
@@ -904,4 +934,69 @@ export const getGuideBookingEarnings = async (page = 1, limit = 20) => {
     }
   );
   return parseJSONOrThrow(res);
+};
+
+export const estimateAddon = async (bookingId, addonData) => {
+  const token = localStorage.getItem("token");
+  const res = await fetch(`${BOOKINGS_BASE_URL}/${bookingId}/addon/estimate`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...buildAuthHeaders(token),
+    },
+    body: JSON.stringify(addonData),
+  });
+  return parseJSONOrThrow(res);
+};
+
+export const createAddonOrder = async (bookingId, addonData) => {
+  const token = localStorage.getItem("token");
+  const res = await fetch(`${BOOKINGS_BASE_URL}/${bookingId}/addon/create-order`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...buildAuthHeaders(token),
+    },
+    body: JSON.stringify(addonData),
+  });
+  return parseJSONOrThrow(res);
+};
+
+export const verifyAddonPayment = async (bookingId, paymentData) => {
+  const token = localStorage.getItem("token");
+  const res = await fetch(`${BOOKINGS_BASE_URL}/${bookingId}/addon/verify-payment`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...buildAuthHeaders(token),
+    },
+    body: JSON.stringify(paymentData),
+  });
+  return parseJSONOrThrow(res);
+};
+
+export const savePost = async (postId) => {
+  const token = localStorage.getItem("token");
+  const res = await fetch(`${AUTH_BASE_URL}/save-post/${postId}`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  return parseJSON(res);
+};
+
+export const unsavePost = async (postId) => {
+  const token = localStorage.getItem("token");
+  const res = await fetch(`${AUTH_BASE_URL}/unsave-post/${postId}`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  return parseJSON(res);
+};
+
+export const getSavedPosts = async () => {
+  const token = localStorage.getItem("token");
+  const res = await fetch(`${AUTH_BASE_URL}/saved-posts`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  return parseJSON(res);
 };

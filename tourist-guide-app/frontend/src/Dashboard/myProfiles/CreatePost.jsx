@@ -1,11 +1,15 @@
 import { useState } from "react";
+import toast from "react-hot-toast";
 import { createPost } from "../../services/api";
 import "./CreatePost.css";
+import { playNotificationSound } from "../../utils/playSound";
 
 const CreatePost = ({ refreshPosts, onClose }) => {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [price, setPrice] = useState("");
+  const [duration, setDuration] = useState("");
+  const [maxGroupSize, setMaxGroupSize] = useState("");
   const [photoFile, setPhotoFile] = useState(null);
 
   const [city, setCity] = useState("");
@@ -15,6 +19,8 @@ const CreatePost = ({ refreshPosts, onClose }) => {
 
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
+
+
 
   const handleImage = (file) => {
     if (!file) return;
@@ -32,7 +38,16 @@ const CreatePost = ({ refreshPosts, onClose }) => {
     e.preventDefault();
 
     if (!title || !body || price === "" || !photoFile || !city || !stateValue) {
-      alert("Please provide title, description, price, photo, and location");
+      playNotificationSound("error");
+      toast.error("Please provide title, description, price, photo, and location", {
+        duration: 3000,
+        style: {
+          border: "1.5px solid #ef4444",
+          padding: '16px',
+          color: '#b91c1c',
+          fontWeight: 700,
+        },
+      });
       return;
     }
 
@@ -57,12 +72,16 @@ const CreatePost = ({ refreshPosts, onClose }) => {
         price,
         photoFile,
         location: JSON.stringify(locationObj),
+        duration: duration || undefined,
+        maxGroupSize: maxGroupSize ? Number(maxGroupSize) : undefined,
       });
 
       if (res && (res.post || res.success)) {
         setTitle("");
         setBody("");
         setPrice("");
+        setDuration("");
+        setMaxGroupSize("");
         setPhotoFile(null);
 
         setCity("");
@@ -75,13 +94,44 @@ const CreatePost = ({ refreshPosts, onClose }) => {
         if (refreshPosts) refreshPosts();
         if (onClose) onClose();
 
-        alert(res.message || "Post created successfully");
+        playNotificationSound("success");
+        toast.success("Post created successfully!", {
+          duration: 3000,
+          style: {
+            border: "1.5px solid #10b981",
+            padding: '16px',
+            color: '#0f172a',
+            fontWeight: 700,
+          },
+          iconTheme: {
+            primary: '#10b981',
+            secondary: '#fff',
+          },
+        });
       } else {
-        alert(res?.message || res?.error || "Unable to create post");
+        playNotificationSound("error");
+        toast.error(res?.message || res?.error || "Unable to create post", {
+          duration: 3000,
+          style: {
+            border: "1.5px solid #ef4444",
+            padding: '16px',
+            color: '#b91c1c',
+            fontWeight: 700,
+          },
+        });
       }
     } catch (err) {
       console.error(err);
-      alert(err?.message || "Error creating post");
+      playNotificationSound("error");
+      toast.error("Failed to create post. Please try again.", {
+        duration: 3000,
+        style: {
+          border: "1.5px solid #ef4444",
+          padding: '16px',
+          color: '#b91c1c',
+          fontWeight: 700,
+        },
+      });
     } finally {
       setLoading(false);
     }
@@ -118,6 +168,23 @@ const CreatePost = ({ refreshPosts, onClose }) => {
               step="any"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
+            />
+
+            <label className="label">Trip Duration</label>
+            <input
+              type="text"
+              placeholder="e.g. Full Day, 4 hours, 2 Days"
+              value={duration}
+              onChange={(e) => setDuration(e.target.value)}
+            />
+
+            <label className="label">Max Group Size</label>
+            <input
+              type="number"
+              min="1"
+              placeholder="e.g. 6"
+              value={maxGroupSize}
+              onChange={(e) => setMaxGroupSize(e.target.value)}
             />
 
             <label className="label">Upload Photo</label>
@@ -197,8 +264,19 @@ const CreatePost = ({ refreshPosts, onClose }) => {
                 type="button"
                 className="my-location"
                 onClick={() => {
-                  if (!navigator.geolocation)
-                    return alert("Geolocation not supported");
+                  if (!navigator.geolocation) {
+                    playNotificationSound("error");
+                    toast.error("Geolocation not supported", {
+                      duration: 3000,
+                      style: {
+                        border: "1.5px solid #ef4444",
+                        padding: '16px',
+                        color: '#b91c1c',
+                        fontWeight: 700,
+                      },
+                    });
+                    return;
+                  }
 
                   navigator.geolocation.getCurrentPosition(
                     (pos) => {
@@ -207,7 +285,16 @@ const CreatePost = ({ refreshPosts, onClose }) => {
                     },
                     (err) => {
                       console.error(err);
-                      alert("Unable to get location");
+                      playNotificationSound("error");
+                      toast.error("Unable to get location", {
+                        duration: 3000,
+                        style: {
+                          border: "1.5px solid #ef4444",
+                          padding: '16px',
+                          color: '#b91c1c',
+                          fontWeight: 700,
+                        },
+                      });
                     },
                     { enableHighAccuracy: true }
                   );

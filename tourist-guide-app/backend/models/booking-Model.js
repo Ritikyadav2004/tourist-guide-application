@@ -192,7 +192,7 @@ const bookingSchema = new mongoose.Schema({
         paymentStatus: {
             type: String,
             enum: ['pending', 'deposit_pending', 'deposit_paid', 'final_pending', 'fully_paid', 'refunded'],
-            default: 'pending'
+            default: 'deposit_pending'
         },
         razorpayOrderId: {
             type: String,
@@ -236,6 +236,107 @@ const bookingSchema = new mongoose.Schema({
         type: String,
         maxlength: 300
     },
+    cancelledAt: {
+        type: Date,
+        default: null
+    },
+    refundStatus: {
+        type: String,
+        enum: ['not_applicable', 'pending', 'processing', 'completed', 'failed'],
+        default: 'not_applicable'
+    },
+    refundAmount: {
+        type: Number,
+        default: 0
+    },
+    refundInitiatedAt: {
+        type: Date,
+        default: null
+    },
+    refundId: {
+        type: String,
+        default: null
+    },
+    selectedAssets: {
+        type: [
+            {
+                assetId: {
+                    type: mongoose.Schema.Types.ObjectId,
+                    ref: 'Asset',
+                    required: true
+                },
+                quantity: {
+                    type: Number,
+                    required: true,
+                    min: 1
+                },
+                pricePerDay: {
+                    type: Number,
+                    required: true,
+                    min: 0
+                },
+                totalPrice: {
+                    type: Number,
+                    required: true,
+                    min: 0
+                }
+            }
+        ],
+        default: []
+    },
+    addOnPayments: {
+        type: [
+            {
+                items: [
+                    {
+                        assetId: {
+                            type: mongoose.Schema.Types.ObjectId,
+                            ref: 'Asset',
+                            required: true
+                        },
+                        quantity: {
+                            type: Number,
+                            required: true,
+                            min: 1
+                        },
+                        pricePerDay: {
+                            type: Number,
+                            required: true,
+                            min: 0
+                        },
+                        totalPrice: {
+                            type: Number,
+                            required: true,
+                            min: 0
+                        }
+                    }
+                ],
+                amount: {
+                    type: Number,
+                    required: true,
+                    min: 0
+                },
+                razorpayOrderId: {
+                    type: String,
+                    required: true
+                },
+                razorpayPaymentId: {
+                    type: String,
+                    default: null
+                },
+                status: {
+                    type: String,
+                    enum: ['pending', 'paid', 'failed'],
+                    default: 'pending'
+                },
+                createdAt: {
+                    type: Date,
+                    default: Date.now
+                }
+            }
+        ],
+        default: []
+    },
     createdAt: {
         type: Date,
         default: Date.now
@@ -260,6 +361,15 @@ bookingSchema.pre('validate', function fillDateRange() {
             this.endDate.getUTCDate()
         ));
         this.durationDays = Math.max(1, Math.floor((end - start) / (24 * 60 * 60 * 1000)) + 1);
+    }
+
+    if (this.totalPrice !== undefined && this.totalPrice !== null) {
+        if (!this.depositAmount) {
+            this.depositAmount = Math.round(this.totalPrice * 0.2);
+        }
+        if (!this.finalAmount) {
+            this.finalAmount = Math.round(this.totalPrice * 0.8);
+        }
     }
 });
 

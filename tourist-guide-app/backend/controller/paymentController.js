@@ -8,6 +8,7 @@ const Refund = require('../models/refund-Model');
 const User = require('../models/userModel');
 const { sendNotification, NotificationTemplates } = require('../utils/notificationHelper');
 const sendEmail = require('../utils/sendEmail');
+const { autoGenerateFinalBill } = require('./finalBillController');
 
 // Initialize Razorpay instance
 const razorpay = new Razorpay({
@@ -30,6 +31,10 @@ exports.createPaymentOrder = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Booking not found' });
         }
 
+        if (booking.status === 'cancelled') {
+            return res.status(400).json({ success: false, message: 'This booking has been cancelled and cannot accept payment.' });
+        }
+
         // Authorization: only tourist or guide? Usually tourist initiates payment.
         // We'll allow the tourist (who is the payer) and admin.
         if (req.user.role !== 'admin' && booking.tourist._id.toString() !== req.user._id.toString()) {
@@ -49,11 +54,19 @@ exports.createPaymentOrder = async (req, res) => {
             booking.paymentStatus = 'deposit_pending';
         } else if (type === 'final') {
             // Final payment is remaining amount (from FinalBill)
-            const finalBill = await FinalBill.findOne({ booking: bookingId });
+            let finalBill = await FinalBill.findOne({ booking: bookingId });
+            if (!finalBill) {
+                finalBill = await autoGenerateFinalBill(bookingId);
+            }
             if (!finalBill) {
                 return res.status(404).json({ success: false, message: 'Final bill not generated yet' });
             }
-            const totalPaid = booking.depositAmount || 0;
+            const addOnTotalPaid = booking.addOnPayments
+                ? booking.addOnPayments
+                    .filter((p) => p.status === 'paid')
+                    .reduce((sum, p) => sum + p.amount, 0)
+                : 0;
+            const totalPaid = (booking.depositAmount || 0) + addOnTotalPaid;
             const remaining = finalBill.totalAmount - totalPaid;
             if (remaining <= 0) {
                 return res.status(400).json({ success: false, message: 'No remaining amount to pay' });
@@ -127,6 +140,16 @@ exports.verifyPayment = async (req, res) => {
     try {
         const { orderId, paymentId, signature, bookingId } = req.body;
 
+        // Find booking first to check status
+        const booking = await Booking.findById(bookingId);
+        if (!booking) {
+            return res.status(404).json({ success: false, message: 'Booking not found' });
+        }
+
+        if (booking.status === 'cancelled') {
+            return res.status(400).json({ success: false, message: 'This booking has been cancelled and cannot accept payment.' });
+        }
+
         // Generate signature to verify
         const generatedSignature = crypto
             .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
@@ -135,12 +158,6 @@ exports.verifyPayment = async (req, res) => {
 
         if (generatedSignature !== signature) {
             return res.status(400).json({ success: false, message: 'Invalid payment signature' });
-        }
-
-        // Update booking
-        const booking = await Booking.findById(bookingId);
-        if (!booking) {
-            return res.status(404).json({ success: false, message: 'Booking not found' });
         }
 
         if (booking.razorpayOrderId !== orderId) {
@@ -156,6 +173,7 @@ exports.verifyPayment = async (req, res) => {
         if (booking.paymentStatus === 'deposit_pending') {
             updateFields.paymentStatus = 'deposit_paid';
             paymentType = 'Deposit';
+            await autoGenerateFinalBill(bookingId);
         } else if (booking.paymentStatus === 'final_pending') {
             updateFields.paymentStatus = 'fully_paid';
             paymentType = 'Final';
@@ -174,7 +192,7 @@ exports.verifyPayment = async (req, res) => {
                 paidAt: new Date(),
                 paymentMethod: req.body.method || null,
             },
-            { new: true }
+            { returnDocument: 'after' }
         );
 
         const tourist = await User.findById(booking.tourist).select('name email');
@@ -414,6 +432,7 @@ exports.webhook = async (req, res) => {
 
             if (booking.paymentStatus === 'deposit_pending') {
                 updateFields.paymentStatus = 'deposit_paid';
+                await autoGenerateFinalBill(booking._id);
             } else if (booking.paymentStatus === 'final_pending') {
                 updateFields.paymentStatus = 'fully_paid';
                 await FinalBill.findOneAndUpdate(
@@ -442,5 +461,522 @@ exports.webhook = async (req, res) => {
         console.error('Webhook Error:', error);
         // Always return 200 to avoid retries from Razorpay
         res.status(200).json({ success: false, message: error.message });
+    }
+};
+
+// ============================================
+// 6. GET USER PAYMENTS (Tourist view)
+// ============================================
+exports.getUserPayments = async (req, res) => {
+    try {
+        const touristId = req.user._id;
+
+        // Fetch bookings for this tourist
+        const bookings = await Booking.find({ tourist: touristId })
+            .populate('guide', 'name email')
+            .populate('post', 'title')
+            .sort({ createdAt: -1 });
+
+        // Fetch payments for this tourist
+        const payments = await Payment.find({ touristId })
+            .populate({
+                path: 'booking',
+                populate: [
+                    { path: 'guide', select: 'name' },
+                    { path: 'post', select: 'title' }
+                ]
+            })
+            .sort({ createdAt: -1 });
+
+        // Calculate stats
+        const totalBookings = bookings.length;
+        let totalPaymentsMade = 0;
+        let successfulCount = 0;
+        let pendingCount = 0;
+        let failedCount = 0;
+
+        payments.forEach(p => {
+            if (p.status === 'paid') {
+                totalPaymentsMade += p.amount;
+                successfulCount++;
+            } else if (p.status === 'created' || p.status === 'attempted') {
+                pendingCount++;
+            } else if (p.status === 'failed') {
+                failedCount++;
+            }
+        });
+
+        // Format history
+        const history = payments.map(p => {
+            return {
+                _id: p._id,
+                transactionId: p.razorpayPaymentId || p.transactionId || p._id.toString().slice(-8).toUpperCase(),
+                tourTitle: p.booking?.post?.title || 'Custom Tour',
+                guideName: p.booking?.guide?.name || 'Guide',
+                amount: p.amount,
+                type: p.type,
+                paymentMethod: p.paymentMethod || 'Razorpay',
+                paymentStatus: p.status === 'paid' ? 'successful' : p.status,
+                createdAt: p.createdAt
+            };
+        });
+
+        // Format bookingsHistory
+        const bookingsHistory = bookings.map(b => {
+            return {
+                _id: b._id,
+                tourTitle: b.post?.title || 'Custom Tour',
+                guideName: b.guide?.name || 'Guide',
+                totalPrice: b.totalPrice,
+                status: b.status,
+                startDate: b.startDate,
+                endDate: b.endDate,
+                createdAt: b.createdAt
+            };
+        });
+
+        // Format charts data (last 6 months or all months in data)
+        // paymentStatusDistribution
+        const paymentStatusDistribution = [
+            { name: 'Successful', value: successfulCount },
+            { name: 'Pending', value: pendingCount },
+            { name: 'Failed', value: failedCount },
+            { name: 'Refunded', value: payments.filter(p => p.status === 'refunded').length }
+        ];
+
+        // Monthly Payments (expenditures per month)
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const monthlyPaymentsMap = {};
+        const bookingVsPaymentTrendsMap = {};
+
+        // Initialize maps with default 6 months or dynamic
+        const now = new Date();
+        for (let i = 5; i >= 0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const mLabel = monthNames[d.getMonth()];
+            monthlyPaymentsMap[mLabel] = 0;
+            bookingVsPaymentTrendsMap[mLabel] = { month: mLabel, bookings: 0, payments: 0 };
+        }
+
+        payments.forEach(p => {
+            if (p.status === 'paid') {
+                const date = new Date(p.createdAt);
+                const mLabel = monthNames[date.getMonth()];
+                if (monthlyPaymentsMap[mLabel] !== undefined) {
+                    monthlyPaymentsMap[mLabel] += p.amount;
+                }
+                if (bookingVsPaymentTrendsMap[mLabel] !== undefined) {
+                    bookingVsPaymentTrendsMap[mLabel].payments += p.amount;
+                }
+            }
+        });
+
+        bookings.forEach(b => {
+            const date = new Date(b.createdAt);
+            const mLabel = monthNames[date.getMonth()];
+            if (bookingVsPaymentTrendsMap[mLabel] !== undefined) {
+                bookingVsPaymentTrendsMap[mLabel].bookings += 1;
+            }
+        });
+
+        const monthlyPayments = Object.keys(monthlyPaymentsMap).map(m => ({
+            month: m,
+            amount: monthlyPaymentsMap[m]
+        }));
+
+        const bookingVsPaymentTrends = Object.values(bookingVsPaymentTrendsMap);
+
+        const charts = {
+            paymentStatusDistribution,
+            monthlyPayments,
+            bookingVsPaymentTrends
+        };
+
+        res.status(200).json({
+            success: true,
+            userPayments: {
+                stats: {
+                    totalBookings,
+                    totalPaymentsMade,
+                    successfulCount,
+                    pendingCount,
+                    failedCount
+                },
+                history,
+                bookingsHistory,
+                charts
+            }
+        });
+    } catch (error) {
+        console.error('getUserPayments Error:', error);
+        res.status(500).json({ success: false, message: error.message || 'Server error' });
+    }
+};
+
+// ============================================
+// 7. GET GUIDE EARNINGS ANALYTICS (Guide view)
+// ============================================
+exports.getGuideEarningsAnalytics = async (req, res) => {
+    try {
+        const guideId = req.user._id;
+
+        // Bookings for this guide
+        const bookings = await Booking.find({ guide: guideId })
+            .populate('tourist', 'name email')
+            .populate('post', 'title')
+            .sort({ createdAt: -1 });
+
+        // Payments where guideId matches
+        const payments = await Payment.find({ guideId })
+            .populate({
+                path: 'booking',
+                populate: { path: 'tourist', select: 'name' }
+            })
+            .sort({ createdAt: -1 });
+
+        // Stats calculations
+        const totalBookingsReceived = bookings.length;
+        let earningsFromOwnBookings = 0;
+        let pendingEarnings = 0;
+        let successfulPayments = 0;
+
+        // Calculate guide earnings
+        bookings.forEach(b => {
+            if (b.status === 'confirmed' || b.status === 'completed') {
+                if (b.paymentStatus === 'fully_paid') {
+                    earningsFromOwnBookings += b.totalPrice;
+                } else if (b.paymentStatus === 'deposit_paid') {
+                    earningsFromOwnBookings += b.depositAmount;
+                    pendingEarnings += b.finalAmount;
+                }
+            }
+        });
+
+        payments.forEach(p => {
+            if (p.status === 'paid') {
+                successfulPayments++;
+            }
+        });
+
+        const formattedPayments = payments.map(p => {
+            return {
+                _id: p._id,
+                transactionId: p.razorpayPaymentId || p.transactionId || p._id.toString().slice(-8).toUpperCase(),
+                touristName: p.booking?.tourist?.name || 'Tourist',
+                amount: p.amount,
+                type: p.type,
+                paymentStatus: p.status === 'paid' ? 'successful' : p.status,
+                createdAt: p.createdAt
+            };
+        });
+
+        const bookingsHistory = bookings.map(b => {
+            return {
+                _id: b._id,
+                touristName: b.tourist?.name || 'Tourist',
+                tourTitle: b.post?.title || 'Custom Tour',
+                totalPrice: b.totalPrice,
+                status: b.status,
+                startDate: b.startDate,
+                endDate: b.endDate,
+                createdAt: b.createdAt
+            };
+        });
+
+        // Charts
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const monthlyEarningsMap = {};
+        const revenueTrendMap = {};
+        const bookingStatusMap = { pending: 0, confirmed: 0, completed: 0, cancelled: 0 };
+
+        const now = new Date();
+        for (let i = 5; i >= 0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const mLabel = monthNames[d.getMonth()];
+            monthlyEarningsMap[mLabel] = 0;
+            revenueTrendMap[mLabel] = 0;
+        }
+
+        bookings.forEach(b => {
+            if (bookingStatusMap[b.status] !== undefined) {
+                bookingStatusMap[b.status]++;
+            }
+            // Earnings mapped by month
+            if (b.status === 'confirmed' || b.status === 'completed') {
+                const date = new Date(b.createdAt);
+                const mLabel = monthNames[date.getMonth()];
+                const earned = b.paymentStatus === 'fully_paid' ? b.totalPrice : (b.paymentStatus === 'deposit_paid' ? b.depositAmount : 0);
+                if (monthlyEarningsMap[mLabel] !== undefined) {
+                    monthlyEarningsMap[mLabel] += earned;
+                }
+            }
+        });
+
+        // Calculate cumulative revenue
+        let cumulative = 0;
+        const revenueTrend = Object.keys(monthlyEarningsMap).map(m => {
+            cumulative += monthlyEarningsMap[m];
+            return { month: m, revenue: cumulative };
+        });
+
+        const monthlyEarnings = Object.keys(monthlyEarningsMap).map(m => ({
+            month: m,
+            earnings: monthlyEarningsMap[m]
+        }));
+
+        const bookingStatusOverview = Object.keys(bookingStatusMap).map(statusName => ({
+            name: statusName.toUpperCase(),
+            value: bookingStatusMap[statusName]
+        }));
+
+        const charts = {
+            monthlyEarnings,
+            bookingStatusOverview,
+            revenueTrend
+        };
+
+        res.status(200).json({
+            success: true,
+            guideAnalytics: {
+                stats: {
+                    totalBookingsReceived,
+                    earningsFromOwnBookings,
+                    pendingEarnings,
+                    successfulPayments
+                },
+                payments: formattedPayments,
+                bookingsHistory,
+                charts
+            }
+        });
+    } catch (error) {
+        console.error('getGuideEarningsAnalytics Error:', error);
+        res.status(500).json({ success: false, message: error.message || 'Server error' });
+    }
+};
+
+// ============================================
+// 8. GET ADMIN PAYMENT ANALYTICS (Admin view)
+// ============================================
+exports.getAdminPaymentAnalytics = async (req, res) => {
+    try {
+        const { touristId, guideId, status, startDate, endDate } = req.query;
+
+        const query = {};
+        if (touristId) query.touristId = touristId;
+        if (guideId) query.guideId = guideId;
+        if (status) {
+            if (status === 'successful') query.status = 'paid';
+            else query.status = status;
+        }
+        if (startDate || endDate) {
+            query.createdAt = {};
+            if (startDate) query.createdAt.$gte = new Date(startDate);
+            if (endDate) query.createdAt.$lte = new Date(endDate);
+        }
+
+        const payments = await Payment.find(query)
+            .populate({
+                path: 'booking',
+                populate: [
+                    { path: 'tourist', select: 'name email' },
+                    { path: 'guide', select: 'name' },
+                    { path: 'post', select: 'title' }
+                ]
+            })
+            .sort({ createdAt: -1 });
+
+        // Calculate stats
+        let totalRevenue = 0;
+        let totalSuccessfulPayments = 0;
+        let totalPendingPayments = 0;
+        let totalFailedPayments = 0;
+        let totalRefunds = 0;
+        let totalRefundsAmount = 0;
+
+        payments.forEach(p => {
+            if (p.status === 'paid') {
+                totalRevenue += p.amount;
+                totalSuccessfulPayments++;
+            } else if (p.status === 'created' || p.status === 'attempted') {
+                totalPendingPayments++;
+            } else if (p.status === 'failed') {
+                totalFailedPayments++;
+            } else if (p.status === 'refunded') {
+                totalRefunds++;
+                totalRefundsAmount += p.amount;
+            }
+        });
+
+        const formattedPayments = payments.map(p => {
+            return {
+                _id: p._id,
+                transactionId: p.razorpayPaymentId || p.transactionId || p._id.toString().slice(-8).toUpperCase(),
+                touristName: p.booking?.tourist?.name || 'Tourist',
+                touristEmail: p.booking?.tourist?.email || '',
+                guideName: p.booking?.guide?.name || 'Guide',
+                tourTitle: p.booking?.post?.title || 'Custom Tour',
+                amount: p.amount,
+                type: p.type,
+                paymentStatus: p.status === 'paid' ? 'successful' : p.status,
+                createdAt: p.createdAt
+            };
+        });
+
+        // Filter options (all tourists and guides for dropdowns)
+        const tourists = await User.find({ role: 'tourist' }).select('name email');
+        const guides = await User.find({ role: 'guide' }).select('name email');
+
+        // Charts data
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const revenueAnalyticsMap = {};
+        const bookingStatusDistributionMap = { successful: totalSuccessfulPayments, pending: totalPendingPayments, failed: totalFailedPayments, refunded: totalRefunds };
+
+        const now = new Date();
+        for (let i = 5; i >= 0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const mLabel = monthNames[d.getMonth()];
+            revenueAnalyticsMap[mLabel] = 0;
+        }
+
+        payments.forEach(p => {
+            if (p.status === 'paid') {
+                const date = new Date(p.createdAt);
+                const mLabel = monthNames[date.getMonth()];
+                if (revenueAnalyticsMap[mLabel] !== undefined) {
+                    revenueAnalyticsMap[mLabel] += p.amount;
+                }
+            }
+        });
+
+        const revenueAnalytics = Object.keys(revenueAnalyticsMap).map(m => ({
+            month: m,
+            revenue: revenueAnalyticsMap[m]
+        }));
+
+        const paymentStatusDistribution = Object.keys(bookingStatusDistributionMap).map(name => ({
+            name: name.charAt(0).toUpperCase() + name.slice(1),
+            value: bookingStatusDistributionMap[name]
+        }));
+
+        // Top earning guides
+        const guideEarnings = {};
+        const bookingsList = await Booking.find({ status: { $in: ['confirmed', 'completed'] } }).populate('guide', 'name');
+        bookingsList.forEach(b => {
+            if (b.guide) {
+                const gName = b.guide.name;
+                const earned = b.paymentStatus === 'fully_paid' ? b.totalPrice : (b.paymentStatus === 'deposit_paid' ? b.depositAmount : 0);
+                guideEarnings[gName] = (guideEarnings[gName] || 0) + earned;
+            }
+        });
+
+        const topEarningGuides = Object.keys(guideEarnings).map(name => ({
+            name,
+            earnings: guideEarnings[name]
+        })).sort((a, b) => b.earnings - a.earnings).slice(0, 5);
+
+        // Booking vs Revenue trends
+        const bookingVsRevenueTrendsMap = {};
+        for (let i = 5; i >= 0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const mLabel = monthNames[d.getMonth()];
+            bookingVsRevenueTrendsMap[mLabel] = { month: mLabel, bookings: 0, revenue: 0 };
+        }
+
+        payments.forEach(p => {
+            if (p.status === 'paid') {
+                const date = new Date(p.createdAt);
+                const mLabel = monthNames[date.getMonth()];
+                if (bookingVsRevenueTrendsMap[mLabel] !== undefined) {
+                    bookingVsRevenueTrendsMap[mLabel].revenue += p.amount;
+                }
+            }
+        });
+
+        bookingsList.forEach(b => {
+            const date = new Date(b.createdAt);
+            const mLabel = monthNames[date.getMonth()];
+            if (bookingVsRevenueTrendsMap[mLabel] !== undefined) {
+                bookingVsRevenueTrendsMap[mLabel].bookings += 1;
+            }
+        });
+
+        const bookingVsRevenueTrends = Object.values(bookingVsRevenueTrendsMap);
+
+        const charts = {
+            revenueAnalytics,
+            paymentStatusDistribution,
+            topEarningGuides,
+            bookingVsRevenueTrends
+        };
+
+        res.status(200).json({
+            success: true,
+            adminAnalytics: {
+                stats: {
+                    totalRevenue,
+                    totalSuccessfulPayments,
+                    totalPendingPayments,
+                    totalFailedPayments,
+                    totalRefunds,
+                    totalRefundsAmount
+                },
+                payments: formattedPayments,
+                filterOptions: { tourists, guides },
+                charts
+            }
+        });
+    } catch (error) {
+        console.error('getAdminPaymentAnalytics Error:', error);
+        res.status(500).json({ success: false, message: error.message || 'Server error' });
+    }
+};
+
+// ============================================
+// 9. UPDATE PAYMENT STATUS (Admin status change)
+// ============================================
+exports.updatePaymentStatus = async (req, res) => {
+    try {
+        const { paymentId } = req.params;
+        const { status } = req.body; // status: 'pending', 'successful', 'failed', 'refunded'
+
+        const dbStatus = status === 'successful' ? 'paid' : status;
+
+        const payment = await Payment.findById(paymentId);
+        if (!payment) {
+            return res.status(404).json({ success: false, message: 'Payment record not found' });
+        }
+
+        payment.status = dbStatus;
+        if (dbStatus === 'paid') {
+            payment.paidAt = new Date();
+        }
+        await payment.save();
+
+        // Update corresponding booking
+        const booking = await Booking.findById(payment.booking);
+        if (booking) {
+            if (dbStatus === 'paid') {
+                if (payment.type === 'deposit') {
+                    booking.paymentStatus = 'deposit_paid';
+                } else if (payment.type === 'final' || payment.type === 'full') {
+                    booking.paymentStatus = 'fully_paid';
+                    await FinalBill.findOneAndUpdate({ booking: booking._id }, { status: 'paid' });
+                }
+            } else if (dbStatus === 'failed') {
+                // If it fails, keep as pending
+            } else if (dbStatus === 'refunded') {
+                booking.paymentStatus = 'refunded';
+            }
+            await booking.save();
+        }
+
+        res.status(200).json({
+            success: true,
+            message: `Payment status updated to ${status} successfully`
+        });
+    } catch (error) {
+        console.error('updatePaymentStatus Error:', error);
+        res.status(500).json({ success: false, message: error.message || 'Server error' });
     }
 };

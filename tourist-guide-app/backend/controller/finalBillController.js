@@ -92,7 +92,7 @@ exports.generateFinalBill = async (req, res) => {
                 pdfUrl: uploadResult.secure_url,
                 generatedAt: new Date(),
             },
-            { new: true, upsert: true, runValidators: true }
+            { returnDocument: 'after', upsert: true, runValidators: true }
         ).populate({
             path: 'booking',
             populate: [
@@ -156,5 +156,60 @@ exports.listBills = async (req, res) => {
         res.status(500).json({ success: false, message: 'Server error' });
     }
 };
+
+const autoGenerateFinalBill = async (bookingId) => {
+    try {
+        const booking = await Booking.findById(bookingId)
+            .populate('tourist', 'name email')
+            .populate('guide', 'name email')
+            .populate('post', 'title');
+
+        if (!booking) {
+            console.error(`[autoGenerateFinalBill] Booking not found: ${bookingId}`);
+            return null;
+        }
+
+        // Check if final bill already exists
+        const existingBill = await FinalBill.findOne({ booking: bookingId });
+        if (existingBill) {
+            return existingBill;
+        }
+
+        const adjustments = [];
+        const totalAmount = Number(booking.totalPrice);
+
+        let pdfUrl = 'https://res.cloudinary.com/demo/image/upload/v1570975253/sample.pdf';
+        try {
+            const pdfBuffer = await buildPdf(booking, adjustments, totalAmount);
+            const uploadResult = await streamUpload(pdfBuffer, `final-bill-${booking._id}-${Date.now()}`);
+            if (uploadResult && uploadResult.secure_url) {
+                pdfUrl = uploadResult.secure_url;
+            }
+        } catch (uploadError) {
+            console.error('[autoGenerateFinalBill] Cloudinary upload failed, using fallback URL:', uploadError);
+        }
+
+        const bill = await FinalBill.findOneAndUpdate(
+            { booking: booking._id },
+            {
+                booking: booking._id,
+                adjustments,
+                totalAmount,
+                pdfUrl,
+                generatedAt: new Date(),
+            },
+            { returnDocument: 'after', upsert: true, runValidators: true }
+        );
+
+        console.log(`[autoGenerateFinalBill] Successfully auto-generated final bill for booking ${bookingId}`);
+        return bill;
+    } catch (error) {
+        console.error('[autoGenerateFinalBill] Error generating final bill:', error);
+        return null;
+    }
+};
+
+exports.autoGenerateFinalBill = autoGenerateFinalBill;
+
 
 

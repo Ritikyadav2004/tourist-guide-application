@@ -41,6 +41,36 @@ const getAvatarSrc = (value) => {
   return value.startsWith("http") ? value : `${API_BASE}/uploads/${value}`;
 };
 
+const hasAvatarImage = (avatar) => {
+  return avatar && avatar !== "default-avatar-url" && avatar !== "default_avatar.jpg" && avatar !== "/default_profile.jpg";
+};
+
+const getInitials = (name) => {
+  if (!name) return "?";
+  const parts = name.trim().split(" ");
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+};
+
+const getAvatarBgColor = (name) => {
+  if (!name) return "#0f766e";
+  const colors = [
+    "#0f766e", // deep brand teal
+    "#14b8a6", // bright teal
+    "#004d40", // dark pine teal
+    "#80cbc4", // soft mint teal
+    "#0d9488", // vibrant medium teal
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % colors.length;
+  return colors[index];
+};
+
 const normalizeText = (value) => String(value || "").trim().toLowerCase();
 
 const getGuideRouteParam = (guide) =>
@@ -77,8 +107,10 @@ const MessagesPage = () => {
   const [sendLoading, setSendLoading] = useState(false);
   const [pageError, setPageError] = useState("");
   const [sendError, setSendError] = useState("");
+  const [mobileActivePanel, setMobileActivePanel] = useState("inbox");
   const initializedGuideRef = useRef("");
   const messagesEndRef = useRef(null);
+  const shouldScrollInstantRef = useRef(false);
 
   const prefillGuideId = location.state?.prefillGuideId || "";
   const currentUserId = user?._id || "";
@@ -90,7 +122,15 @@ const MessagesPage = () => {
   }, [token, user, authLoading, dispatch]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    shouldScrollInstantRef.current = true;
+  }, [activeChatId]);
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      const behavior = shouldScrollInstantRef.current ? "auto" : "smooth";
+      messagesEndRef.current?.scrollIntoView({ behavior, block: "end" });
+      shouldScrollInstantRef.current = false;
+    }
   }, [messages]);
 
   useEffect(() => {
@@ -157,6 +197,7 @@ const MessagesPage = () => {
           return [nextChat, ...current];
         });
         setActiveChatId(nextChat._id);
+        setMobileActivePanel("chat");
       } catch (error) {
         if (!active) return;
         setPageError(error?.message || "Unable to open this guide chat.");
@@ -350,25 +391,13 @@ const MessagesPage = () => {
   return (
     <DashboardLayout>
       <div className="messages-page">
-        <div className="messages-header">
-          <div>
-            <p className="messages-pill">Chat inbox</p>
-            <h1>Messages</h1>
-            <p className="messages-subtitle">
-              Chat with guides and travelers using the existing backend `chatMessage`,
-              sender, and receiver flow.
-            </p>
-          </div>
-          <div className="messages-summary-card">
-            <strong>{chats.length}</strong>
-            <span>{chats.length === 1 ? "conversation" : "conversations"}</span>
-            <small>{totalUnreadCount} unread</small>
-          </div>
+        <div className="messages-header-minimal">
+          <h1>Messages</h1>
         </div>
 
         {pageError ? <div className="messages-banner is-error">{pageError}</div> : null}
 
-        <div className="messages-shell">
+        <div className={`messages-shell mobile-show-${mobileActivePanel}`}>
           <aside className="messages-sidebar">
             <div className="messages-sidebar__header">
               <h2>Inbox</h2>
@@ -396,19 +425,32 @@ const MessagesPage = () => {
                       key={chat._id}
                       type="button"
                       className={`messages-chat-card ${isActive ? "is-active" : ""}`}
-                      onClick={() => setActiveChatId(chat._id)}
+                      onClick={() => {
+                        setActiveChatId(chat._id);
+                        setMobileActivePanel("chat");
+                      }}
                     >
-                      <img
-                        src={getAvatarSrc(participant?.avatar)}
-                        alt={participant?.name || "User"}
-                        onError={(event) => {
-                          event.currentTarget.onerror = null;
-                          event.currentTarget.src = "/default_profile.jpg";
-                        }}
-                      />
+                      {hasAvatarImage(participant?.avatar) ? (
+                        <img
+                          src={getAvatarSrc(participant?.avatar)}
+                          alt={participant?.name || "User"}
+                        />
+                      ) : (
+                        <div
+                          className="messages-chat-card__initials"
+                          style={{ backgroundColor: getAvatarBgColor(participant?.name) }}
+                        >
+                          {getInitials(participant?.name)}
+                        </div>
+                      )}
                       <div className="messages-chat-card__content">
                         <div className="messages-chat-card__top">
-                          <strong>{participant?.name || "Unknown user"}</strong>
+                          <strong className="messages-chat-card__name-wrapper">
+                            {participant?.name || "Unknown user"}
+                            {chat?.unreadCount ? (
+                              <span className="messages-unread-dot" title={`${chat.unreadCount} unread`} />
+                            ) : null}
+                          </strong>
                           <span>{formatMessageTime(chat?.lastMessageTime || chat?.createdAt)}</span>
                         </div>
                         <p>{chat?.lastMessage || "Start a conversation"}</p>
@@ -432,16 +474,37 @@ const MessagesPage = () => {
               </div>
             ) : (
               <>
-                <div className="messages-thread__header">
+                 <div className="messages-thread__header">
+                  <button
+                    type="button"
+                    className="messages-mobile-back-btn"
+                    onClick={() => setMobileActivePanel("inbox")}
+                    aria-label="Back to inbox"
+                  >
+                    ←
+                  </button>
                   <div className="messages-thread__person">
-                    <img
-                      src={getAvatarSrc(activeParticipant?.avatar)}
-                      alt={activeParticipant?.name || "User"}
-                      onError={(event) => {
-                        event.currentTarget.onerror = null;
-                        event.currentTarget.src = "/default_profile.jpg";
-                      }}
-                    />
+                    <button
+                      type="button"
+                      className="messages-thread__avatar-btn"
+                      onClick={handleOpenProfile}
+                      disabled={!activeParticipant?._id || !["guide", "admin"].includes(activeParticipant?.role)}
+                      title={activeParticipant?._id && ["guide", "admin"].includes(activeParticipant?.role) ? "View profile" : ""}
+                    >
+                      {hasAvatarImage(activeParticipant?.avatar) ? (
+                        <img
+                          src={getAvatarSrc(activeParticipant?.avatar)}
+                          alt={activeParticipant?.name || "User"}
+                        />
+                      ) : (
+                        <div
+                          className="messages-thread__person-initials"
+                          style={{ backgroundColor: getAvatarBgColor(activeParticipant?.name) }}
+                        >
+                          {getInitials(activeParticipant?.name)}
+                        </div>
+                      )}
+                    </button>
                     <div>
                       <h2>{activeParticipant?.name || "Unknown user"}</h2>
                       <p>
@@ -450,16 +513,6 @@ const MessagesPage = () => {
                       </p>
                     </div>
                   </div>
-
-                  {activeParticipant?._id && ["guide", "admin"].includes(activeParticipant?.role) ? (
-                    <button
-                      type="button"
-                      className="messages-secondary-btn"
-                      onClick={handleOpenProfile}
-                    >
-                      Open profile
-                    </button>
-                  ) : null}
                 </div>
 
                 <div className="messages-thread__body">
@@ -468,12 +521,18 @@ const MessagesPage = () => {
                     <p className="messages-thread__hint">No messages yet. Send the first one below.</p>
                   ) : null}
 
-                  {messages.map((item) => {
+                  {messages.map((item, index) => {
                     const isMine = item?.sender?._id === currentUserId || item?.sender === currentUserId;
+                    const prevItem = index > 0 ? messages[index - 1] : null;
+                    const prevSenderId = prevItem ? (prevItem.sender?._id || prevItem.sender) : null;
+                    const currentSenderId = item?.sender?._id || item?.sender;
+                    const isSameSender = prevSenderId === currentSenderId;
                     return (
                       <article
                         key={item._id}
-                        className={`message-bubble ${isMine ? "is-mine" : "is-theirs"}`}
+                        className={`message-bubble ${isMine ? "is-mine" : "is-theirs"} ${
+                          isSameSender ? "consecutive-same-sender" : "consecutive-new-sender"
+                        }`}
                       >
                         <p>{item?.message || ""}</p>
                         <span>{formatMessageTime(item?.createdAt)}</span>

@@ -1,25 +1,15 @@
 .categories {
-  padding: clamp(24px, 6vw, 72px) clamp(16px, 5vw, 48px);
-  background: #ffffff;
+  padding: 0;
+  background: transparent;
+  margin: 3.5rem 0;
 }
 
 /* Header */
 .categories-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 30px;
-}
-
-.categories-header h2 {
-  font-size: 24px;
-  font-weight: 600;
-}
-
-.categories-header p {
-  font-size: 14px;
-  color: #6c757d;
-  margin-top: 5px;
+  align-items: flex-end;
+  margin-bottom: 24px;
 }
 
 /* Arrows */
@@ -30,6 +20,12 @@
   margin-left: 8px;
   border-radius: 50%;
   cursor: pointer;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
 }
 
 .category-arrows button:hover {
@@ -44,47 +40,72 @@
 /* Cards */
 .category-cards {
   display: flex;
-  gap: 20px;
+  gap: 18px;
   overflow-x: auto;
   scroll-behavior: smooth;
+  padding: 10px 0 16px;
 }
 
 .category-card {
   position: relative;
-  min-width: 280px;
-  height: 190px;
-  border-radius: 18px;
-  background-size: cover;
-  background-position: center;
+  min-width: 210px;
+  max-width: 210px;
+  height: 270px;
+  border-radius: 16px;
   cursor: pointer;
   overflow: hidden;
-  transition: transform 0.4s ease;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+  flex-shrink: 0;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+.category-card-image {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Hover style: zoom in on image and translate/shadow the card to match post-card */
 .category-card:hover {
-  transform: scale(1.05);
+  transform: translateY(-4px);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.12);
 }
 
-/* Dark overlay */
+.category-card:hover .category-card-image {
+  transform: scale(1.08);
+}
+
+/* Dark overlay - stronger at the bottom where text sits */
 .category-card .overlay {
   position: absolute;
   inset: 0;
   background: linear-gradient(
     to top,
-    rgba(0, 0, 0, 0.6),
-    rgba(0, 0, 0, 0.2)
+    rgba(15, 23, 42, 0.92) 0%,
+    rgba(15, 23, 42, 0.4) 35%,
+    rgba(15, 23, 42, 0) 80%
   );
+  z-index: 1;
 }
 
-/* Text */
+/* Text styling */
 .category-card h3 {
   position: absolute;
-  bottom: 15px;
-  left: 15px;
-  color: white;
-  font-size: 16px;
-  font-weight: 600;
+  bottom: 16px;
+  left: 16px;
+  right: 16px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   z-index: 2;
+  margin: 0;
+  font-family: inherit;
 }
 
 @media (max-width: 900px) {
@@ -96,8 +117,17 @@
 }
 
 @media (max-width: 640px) {
+  .categories {
+    margin: 4rem 0;
+  }
   .category-card {
-    min-width: 220px;
-    height: 170px;
+    min-width: 210px; /* cinematic aspect ratio width on mobile */
+    height: 315px;    /* cinematic aspect ratio height on mobile */
+    border-radius: 16px;
+  }
+  .category-card h3 {
+    font-size: 17px;
+    bottom: 16px;
+    left: 16px;
   }
 }

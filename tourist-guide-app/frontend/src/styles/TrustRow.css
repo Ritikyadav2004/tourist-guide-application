@@ -1,0 +1,74 @@
+/* TrustRow.css - Trust row with 16px padding, larger icons, and soft light-teal background */
+.gg-trust-row {
+  background-color: #f0fdfa; /* Soft light-teal background */
+  border-top: 1px solid #ccfbf1;
+  border-bottom: 1px solid #ccfbf1;
+  padding: 16px 20px; /* 16px top and bottom padding */
+  width: 100%;
+}
+
+.gg-trust-container {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 20px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.gg-trust-container::-webkit-scrollbar {
+  display: none;
+}
+
+.gg-trust-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 700; /* Slightly bolder text */
+  color: #0f766e; /* Deep teal for high legibility on light teal */
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-family: 'Inter', -apple-system, sans-serif;
+}
+
+/* Larger icons */
+.gg-trust-icon {
+  font-size: 18px; /* Larger icon size */
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gg-trust-divider {
+  width: 4px;
+  height: 4px;
+  background-color: #99f6e4;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+@media (max-width: 480px) {
+  .gg-trust-row {
+    padding: 16px 14px;
+  }
+
+  .gg-trust-item {
+    font-size: 12.5px;
+    gap: 6px;
+  }
+
+  .gg-trust-icon {
+    font-size: 16px;
+  }
+
+  .gg-trust-container {
+    gap: 14px;
+    justify-content: flex-start;
+  }
+}
